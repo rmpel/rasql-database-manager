@@ -8,6 +8,7 @@ import { parseLaunchArgument, redactUrl } from './deeplink';
 import { registerExportIpc } from './export';
 import { registerIpc } from './ipc';
 import { installMenu } from './menu';
+import { offerDesktopIntegration, integrateDesktop } from './desktop';
 import { SessionManager } from './sessions';
 import { createSshTunnelManager, registerSshIpc } from './ssh/ipc';
 import { WindowManager } from './windows';
@@ -78,7 +79,10 @@ if (!app.requestSingleInstanceLock()) {
     registerIpc({ store, credentials, sessions, windows, history });
     registerExportIpc({ sessions });
     registerSshIpc({ credentials });
-    installMenu(() => windows.create());
+    installMenu(
+      () => windows.create(),
+      () => void integrateDesktop(log),
+    );
 
     const launchedWith = process.argv.slice(app.isPackaged ? 1 : 2).find((a) => !a.startsWith('-'));
     const pending = launchedWith ? parseLaunchArgument(launchedWith) : null;
@@ -88,6 +92,8 @@ if (!app.requestSingleInstanceLock()) {
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) windows.create();
     });
+
+    void offerDesktopIntegration(log);
   });
 
   app.on('window-all-closed', () => {

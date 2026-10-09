@@ -18,6 +18,8 @@ files:
 extraResources:
   - from: ../localwp-addon/dist
     to: localwp-addon
+  - from: build/icon.png
+    to: icon.png
 asar: true
 asarUnpack:
   - node_modules/@napi-rs/**

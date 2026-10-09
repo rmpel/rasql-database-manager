@@ -59,6 +59,23 @@ sudo apt install -y xvfb
 Follow https://docs.docker.com/engine/install/ for your distribution and add yourself to the
 `docker` group so `docker` works without sudo.
 
+### Arch, Manjaro, CachyOS and other pacman distributions
+
+The apt commands above have these equivalents. Node 24 LTS is the `krypton` package; Arch's
+plain `nodejs` is newer and ships without corepack.
+
+```
+sudo pacman -S --needed git curl nodejs-lts-krypton npm corepack \
+  gtk3 libnotify nss libxss libxtst xdg-utils at-spi2-core util-linux-libs libsecret alsa-lib fuse2 \
+  xorg-server-xvfb
+corepack enable pnpm --install-directory ~/.local/bin   # user-writable and already on PATH
+```
+
+If `corepack` is not in your repositories, `npm install -g --prefix ~/.local corepack` does the same
+without touching `/usr`. `fuse2` is what lets the AppImage run; `xorg-server-xvfb` is only for the
+UI tests. Docker: `sudo pacman -S docker`, `sudo systemctl enable --now docker`, add yourself to the
+`docker` group and log in again. Then continue with step 2.
+
 ## 2. Get the source
 
 ```
@@ -133,6 +150,10 @@ pnpm matrix:down     # removes the containers and their data
   pnpm installed through a distribution package. Use corepack's pnpm, then `pnpm install --force`.
 - **Icon or URL handler does not appear**: log out and in once, or run
   `update-desktop-database ~/.local/share/applications`.
+- **You downloaded the AppImage instead of using the script**: an AppImage cannot register itself.
+  RaSQL offers to add a desktop entry on its first launch, and **File, Integrate with Desktop…**
+  does it later. Until then the LocalWP add-on cannot find a handler for `rasql://` links and shows
+  "Get RaSQL" instead of "Open in RaSQL".
 
 ## Updating later
 

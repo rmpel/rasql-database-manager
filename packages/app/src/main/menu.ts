@@ -1,6 +1,6 @@
 import { app, Menu, shell, type MenuItemConstructorOptions } from 'electron';
 
-export function installMenu(onNewWindow: () => void): void {
+export function installMenu(onNewWindow: () => void, onIntegrateDesktop: () => void): void {
   const isMac = process.platform === 'darwin';
   const template: MenuItemConstructorOptions[] = [
     ...(isMac ? [{ role: 'appMenu' as const }] : []),
@@ -8,6 +8,12 @@ export function installMenu(onNewWindow: () => void): void {
       label: 'File',
       submenu: [
         { label: 'New Connection Window', accelerator: 'CmdOrCtrl+N', click: onNewWindow },
+        ...(process.platform === 'linux'
+          ? [
+              { type: 'separator' as const },
+              { label: 'Integrate with Desktop…', click: onIntegrateDesktop },
+            ]
+          : []),
         { type: 'separator' },
         isMac ? { role: 'close' } : { role: 'quit' },
       ],
