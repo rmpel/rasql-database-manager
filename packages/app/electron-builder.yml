@@ -41,6 +41,7 @@ mac:
 dmg:
   sign: false
 linux:
+  executableName: rasql
   target: [AppImage, deb]
   category: Development
   maintainer: Remon Pel

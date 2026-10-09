@@ -5,7 +5,15 @@
  */
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { basename, dirname, isAbsolute, join, resolve } from 'node:path';
+import { posix } from 'node:path';
+
+/**
+ * ssh_config paths are POSIX-style on every OS, including OpenSSH for Windows, so the parser
+ * never uses the host's path separator. Forward slashes work for Node's fs on Windows too.
+ */
+const toPosix = (p: string): string => p.replace(/\\/g, '/');
+const isAbsolutePath = (p: string): boolean => p.startsWith('/') || /^[A-Za-z]:\//.test(p);
+const { basename, dirname, join, resolve } = posix;
 
 export interface SshConfigEntry {
   patterns: string[];
@@ -52,9 +60,10 @@ const defaultReader: ReadFileLike = (path) => {
 };
 
 export function expandHome(path: string, home = homedir()): string {
-  if (path === '~') return home;
-  if (path.startsWith('~/')) return join(home, path.slice(2));
-  return path;
+  const h = toPosix(home);
+  if (path === '~') return h;
+  if (path.startsWith('~/')) return join(h, path.slice(2));
+  return toPosix(path);
 }
 
 /** Glob with `*` and `?`, as OpenSSH matches Host patterns. */
@@ -78,7 +87,7 @@ export function parseSshConfig(
   text: string,
   opts: { sshDir?: string; read?: ReadFileLike; listDir?: ListDirLike; depth?: number } = {},
 ): SshConfigEntry[] {
-  const sshDir = opts.sshDir ?? join(homedir(), '.ssh');
+  const sshDir = opts.sshDir ?? join(toPosix(homedir()), '.ssh');
   const read = opts.read ?? defaultReader;
   const listDir = opts.listDir ?? defaultLister;
   const depth = opts.depth ?? 0;
@@ -108,7 +117,10 @@ export function parseSshConfig(
     if (keyword === 'include') {
       if (depth > 8) continue;
       for (const arg of splitArgs(value)) {
-        const pattern = isAbsolute(arg) ? arg : resolve(sshDir, expandHome(arg, dirname(sshDir)));
+        const dir = toPosix(sshDir);
+        const pattern = isAbsolutePath(arg)
+          ? toPosix(arg)
+          : resolve(dir, expandHome(arg, dirname(dir)));
         const paths = /[*?]/.test(basename(pattern))
           ? listDir(dirname(pattern))
               .filter((f) => patternMatches(basename(pattern), f))
@@ -219,7 +231,7 @@ export function loadUserSshConfig(
   home = homedir(),
   read: ReadFileLike = defaultReader,
 ): SshConfigEntry[] {
-  const sshDir = join(home, '.ssh');
+  const sshDir = join(toPosix(home), '.ssh');
   const text = read(join(sshDir, 'config'));
   if (text === null) return [];
   return parseSshConfig(text, { sshDir, read });
@@ -228,6 +240,6 @@ export function loadUserSshConfig(
 /** Keys OpenSSH tries by default, those that exist. */
 export function defaultIdentityFiles(home = homedir()): string[] {
   return ['id_ed25519', 'id_ecdsa', 'id_rsa', 'id_ed25519_sk', 'id_ecdsa_sk']
-    .map((f) => join(home, '.ssh', f))
+    .map((f) => join(toPosix(home), '.ssh', f))
     .filter((f) => existsSync(f));
 }

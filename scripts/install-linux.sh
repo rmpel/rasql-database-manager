@@ -41,14 +41,14 @@ case "$ARCH" in
   *) ARCH_TAG=$ARCH ;;
 esac
 
-pkill -x RaSQL >/dev/null 2>&1 || pkill -f 'RaSQL.AppImage' >/dev/null 2>&1 || true
+pkill -x rasql >/dev/null 2>&1 || pkill -f 'RaSQL.AppImage' >/dev/null 2>&1 || true
 
 if [[ $USE_DEB -eq 1 ]]; then
   DEB=$(ls "$APP_DIR"/release/*.deb | head -1)
   [[ -f "$DEB" ]] || { echo "No .deb produced" >&2; exit 1; }
   echo "==> Installing $DEB (sudo)"
   sudo dpkg -i "$DEB"
-  EXEC=rasql
+  EXEC=/usr/bin/rasql
 else
   APPIMAGE=$(ls "$APP_DIR"/release/*"$ARCH_TAG"*.AppImage 2>/dev/null | head -1)
   [[ -f "$APPIMAGE" ]] || APPIMAGE=$(ls "$APP_DIR"/release/*.AppImage | head -1)

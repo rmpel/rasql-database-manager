@@ -215,20 +215,23 @@ describe('SshTunnelManager', () => {
     }
   });
 
-  it('forwards to a Unix socket on the remote side', async () => {
-    const sockPath = join(dir, 'echo.sock');
-    const unix = await echoServer(sockPath);
-    const m = manager();
-    const t = await m.open([hop(sshd.port, { auth: 'password' })], { socketPath: sockPath }, [
-      { password: 'secret' },
-    ]);
-    try {
-      expect(await roundTrip(t.port, 'unix socket')).toBe('unix socket');
-    } finally {
-      t.release();
-      unix.server.close();
-    }
-  });
+  it.skipIf(process.platform === 'win32')(
+    'forwards to a Unix socket on the remote side',
+    async () => {
+      const sockPath = join(dir, 'echo.sock');
+      const unix = await echoServer(sockPath);
+      const m = manager();
+      const t = await m.open([hop(sshd.port, { auth: 'password' })], { socketPath: sockPath }, [
+        { password: 'secret' },
+      ]);
+      try {
+        expect(await roundTrip(t.port, 'unix socket')).toBe('unix socket');
+      } finally {
+        t.release();
+        unix.server.close();
+      }
+    },
+  );
 
   it('asks about an unknown host once, then remembers it in its own known_hosts', async () => {
     const fresh = await startSshServer({ password: 'secret' });

@@ -129,7 +129,12 @@ export function discoverSites(dataDir = localDataDir()): LocalSite[] {
         database: s.mysql?.database ?? 'local',
         user: s.mysql?.user ?? 'root',
         password: s.mysql?.password ?? 'root',
-        running: socketPath !== undefined && existsSync(socketPath),
+        // macOS and Linux: the socket exists only while the site runs. Windows has no socket;
+        // Local keeps the per-site mysql run directory while it runs, which is the best signal there.
+        running:
+          socketPath !== undefined
+            ? existsSync(socketPath)
+            : existsSync(join(dataDir, 'run', s.id, 'mysql')),
       };
       if (s.domain) site.domain = s.domain;
       if (s.path) site.path = s.path;
