@@ -16,6 +16,8 @@ RaSQL connects to the database the way developers actually reach it: a socket on
 
 ## Developing
 
+Starting from a machine with nothing installed? See [BUILD.md](BUILD.md) for a from-scratch guide per OS and CPU, including Windows on ARM.
+
 Node 24 and pnpm through corepack. Docker only for the MySQL and MariaDB engine matrix.
 
 ```bash
