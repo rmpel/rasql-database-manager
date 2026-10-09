@@ -16,7 +16,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:matrix": "RASQL_TEST_MATRIX=1 vitest run --project driver-mysql",
-    "matrix:up": "docker compose -f test/matrix/docker-compose.yml up -d --wait",
+    "matrix:up": "docker compose -f test/matrix/docker-compose.yml up -d --wait --wait-timeout 600",
     "matrix:down": "docker compose -f test/matrix/docker-compose.yml down -v",
     "lint": "eslint .",
     "format": "prettier --write .",

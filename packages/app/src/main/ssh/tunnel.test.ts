@@ -30,7 +30,9 @@ function parse(text: string): ParsedKey {
 /** An in-process sshd that forwards TCP and Unix-socket requests like OpenSSH would. */
 function startSshServer(opts: { password?: string; allowKey?: ParsedKey }): Promise<TestSshServer> {
   const pair = utils.generateKeyPairSync('ed25519');
-  const hostKey = parse(pair.public).getPublicSSH();
+  // Derive the public half from the private key: ssh2 occasionally rejects its own generated
+  // public-key text with "Malformed OpenSSH public key", which made this test flaky.
+  const hostKey = parse(pair.private).getPublicSSH();
   const state = { connections: 0, closed: 0 };
   const live = new Set<Connection>();
   const server = new Server({ hostKeys: [pair.private] }, (conn) => {
