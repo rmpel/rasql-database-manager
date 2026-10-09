@@ -206,3 +206,14 @@ entries come out empty. A zip has no such filter, and a script that writes a han
 `HKCU\Software\Classes` keys does everything the installer did for a per-user install.
 **Verified:** on a Snapdragon Windows 11 machine, 2026-10-09.
 **Owner:** Remon found it; Claude diagnosed and rerouted; dated 2026-10-09.
+
+## D-31 A rolling nightly pre-release on every push to master
+
+**Decided:** CI builds both CPU variants per OS and, once every check passes, recreates the
+GitHub pre-release tagged `nightly` from those artifacts. Download links are stable; the tag moves
+to the latest commit. Windows ARM64 ships as a zip only (D-30). Proper versioned releases remain
+a separate, deliberate act.
+**Why:** Remon asked for builds on every commit rather than nightly; GitHub Releases is the only
+distribution channel (GOAL.md section 9), and a rolling pre-release gives testers on other machines
+a build of exactly the commit they are looking at without anyone packaging by hand.
+**Owner:** Remon asked; Claude shaped; dated 2026-10-09.

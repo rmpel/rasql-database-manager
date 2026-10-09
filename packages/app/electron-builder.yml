@@ -37,7 +37,11 @@ fileAssociations:
     role: Viewer
 mac:
   category: public.app-category.developer-tools
-  target: [dmg, zip]
+  target:
+    - target: dmg
+      arch: [arm64, x64]
+    - target: zip
+      arch: [arm64, x64]
   # No Apple Developer account (docs/DECISIONS.md D-12): ad-hoc signature, no notarization.
   identity: null
   hardenedRuntime: false
@@ -46,13 +50,21 @@ dmg:
   sign: false
 linux:
   executableName: rasql
-  target: [AppImage, deb]
+  target:
+    - target: AppImage
+      arch: [x64, arm64]
+    - target: deb
+      arch: [x64, arm64]
   category: Development
   maintainer: Remon Pel
 win:
   # The zip is what scripts/install-windows.ps1 installs from; the NSIS installer is for x64
   # downloads only. On arm64 the NSIS extractor drops .exe and .dll files (docs/DECISIONS.md D-30).
-  target: [zip, nsis]
+  target:
+    - target: zip
+      arch: [x64, arm64]
+    - target: nsis
+      arch: [x64]
 nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true

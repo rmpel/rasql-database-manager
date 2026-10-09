@@ -14,6 +14,13 @@ A fast, keyboard-first database manager for web developers. Free, open source, M
 
 RaSQL connects to the database the way developers actually reach it: a socket on the laptop, TCP on localhost, an SSH tunnel to a server. It opens in under a second, is driven from the keyboard, and shows production connections in a different color than local ones. Database engines are plug-in drivers behind one protocol, so the project starts with MySQL and MariaDB plus SQLite and grows from there without touching the core. It can be opened with one click from other tools, starting with a LocalWP add-on, and it exposes its connections to AI agents over MCP, but only the connections the user explicitly grants.
 
+## Downloads
+
+Every push to `master` that passes CI replaces the rolling **nightly** pre-release:
+https://github.com/rmpel/rasql-database-manager/releases/tag/nightly. It carries macOS (Apple
+Silicon and Intel), Windows (x64 installer, ARM64 zip) and Linux (x64 and ARM64 AppImage and
+.deb). The builds are unsigned; the release notes say how to get past the first-launch warning.
+
 ## Developing
 
 Starting from a machine with nothing installed? See [BUILD.md](BUILD.md) for a from-scratch guide per OS and CPU, including Windows on ARM.

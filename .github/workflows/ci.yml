@@ -45,7 +45,8 @@ jobs:
             packages/app/screenshots
           if-no-files-found: ignore
           retention-days: 7
-      # Package for the runner's own OS so a broken installer shows up here, not on a test machine.
+      # Package for the runner's OS, both CPU types, so a broken installer shows up here and the
+      # nightly release gets every variant. The target and arch matrix lives in electron-builder.yml.
       - name: Package
         run: pnpm --filter @rasql/app exec electron-builder --publish never
       # The install scripts are what people actually run; exercise each on its own OS.
@@ -83,6 +84,58 @@ jobs:
             packages/app/release/*.exe
           if-no-files-found: error
           retention-days: 14
+
+  # A rolling pre-release, replaced on every push to master, with stable download links:
+  # https://github.com/rmpel/rasql-database-manager/releases/tag/nightly
+  nightly:
+    runs-on: ubuntu-latest
+    needs: check
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v5
+        with:
+          pattern: rasql-*
+          path: dist
+          merge-multiple: true
+      - name: Drop files that are not downloads
+        run: |
+          cd dist
+          rm -f *.blockmap *.yml *.yaml
+          ls -la
+      - name: Publish the nightly release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          VERSION=$(node -p "require('./packages/app/package.json').version")
+          SHA=${GITHUB_SHA::7}
+          NOTES=$(cat <<EOF
+          Rolling pre-release built from \`$SHA\` on $(date -u +'%Y-%m-%d %H:%M UTC'). Replaced on every push to master.
+
+          **Unsigned builds**: macOS blocks the first launch (System Settings, Privacy & Security, Open Anyway), Windows shows a SmartScreen prompt (More info, Run anyway). See docs/DECISIONS.md D-12.
+
+          | Platform | File |
+          | --- | --- |
+          | macOS Apple Silicon | RaSQL-$VERSION-arm64.dmg |
+          | macOS Intel | RaSQL-$VERSION-x64.dmg |
+          | Windows x64 installer | RaSQL-$VERSION-x64.exe |
+          | Windows ARM64 (zip, no installer: see D-30) | RaSQL-$VERSION-arm64.zip |
+          | Linux x64 | RaSQL-$VERSION-x64.AppImage, RaSQL-$VERSION-x64.deb |
+          | Linux ARM64 | RaSQL-$VERSION-arm64.AppImage, RaSQL-$VERSION-arm64.deb |
+
+          Commit: $GITHUB_SHA
+          EOF
+          )
+          # Recreate the release so the tag moves to this commit and stale assets disappear.
+          gh release delete nightly --yes --cleanup-tag || true
+          gh release create nightly dist/* \
+            --target "$GITHUB_SHA" \
+            --prerelease \
+            --title "Nightly $VERSION ($SHA)" \
+            --notes "$NOTES"
 
   engine-matrix:
     runs-on: ubuntu-latest
