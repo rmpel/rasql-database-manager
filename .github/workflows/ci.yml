@@ -48,6 +48,29 @@ jobs:
       # Package for the runner's own OS so a broken installer shows up here, not on a test machine.
       - name: Package
         run: pnpm --filter @rasql/app exec electron-builder --publish never
+      # The install scripts are what people actually run; exercise each on its own OS.
+      - name: Install script (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          scripts/install-mac.sh --no-launch
+          test -x "$HOME/Applications/RaSQL.app/Contents/MacOS/RaSQL"
+      - name: Install script (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          scripts/install-linux.sh --no-launch
+          test -x "$HOME/.local/bin/RaSQL.AppImage"
+          test -f "$HOME/.local/share/applications/rasql.desktop"
+      - name: Install script (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          powershell -ExecutionPolicy Bypass -File scripts/install-windows.ps1 -NoLaunch
+          if (-not (Test-Path "$env:LOCALAPPDATA\Programs\RaSQL\RaSQL.exe")) { throw 'RaSQL.exe not installed' }
+          if ((Get-ItemProperty 'HKCU:\Software\Classes\rasql\shell\open\command').'(default)' -notlike '*RaSQL.exe*') { throw 'rasql:// not registered' }
+          if (-not (Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\RaSQL' -ErrorAction SilentlyContinue)) { throw 'uninstall entry missing' }
+          powershell -ExecutionPolicy Bypass -File "$env:LOCALAPPDATA\Programs\RaSQL\uninstall.ps1"
+          Start-Sleep -Seconds 4
+          if (Get-ItemProperty 'HKCU:\Software\Classes\rasql' -ErrorAction SilentlyContinue) { throw 'uninstall left the rasql:// registration' }
       - name: Upload package
         uses: actions/upload-artifact@v5
         with:
