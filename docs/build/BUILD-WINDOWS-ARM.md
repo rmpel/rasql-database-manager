@@ -129,16 +129,19 @@ Build the installer and install it:
 
 ```
 pnpm install:windows
-# builds a native installer for this machine's CPU, installs it per user, launches RaSQL
+# builds a zip for this machine's CPU, extracts it to %LOCALAPPDATA%\Programs\RaSQL, registers the
+# URL schemes, file types, Start Menu entry and an uninstall entry for your user, and launches RaSQL
 ```
 
-The installer also lands in `packages\app\release\` as `RaSQL-<version>-arm64.exe`.
+The zip also lands in `packages\app\release\` as `RaSQL-<version>-arm64.zip`. The NSIS installer is not used on ARM: its extractor drops the executables (D-30).
 
-## First launch: the SmartScreen warning
+## First launch
 
-The installer is not code-signed, so Windows SmartScreen shows "Windows protected your PC" the
-first time. Click **More info**, then **Run anyway**. This happens once per build. Everything
-installs per user into `%LOCALAPPDATA%\Programs\RaSQL`; no administrator rights are needed.
+The script installs from the zip, so there is no installer and nothing for SmartScreen to warn
+about; a build you made yourself has no mark-of-the-web. Everything lives under
+`%LOCALAPPDATA%\Programs\RaSQL`, uninstall is in Settings, Apps, like any other app, and no
+administrator rights are involved. Downloaded x64 installers from GitHub do get the SmartScreen
+"Windows protected your PC" prompt once: click **More info**, then **Run anyway**.
 
 ## 5. Optional: the MySQL and MariaDB engine matrix
 

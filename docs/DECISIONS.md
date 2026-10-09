@@ -191,3 +191,18 @@ All entries dated 2026-10-08 unless stated otherwise.
 **Filters and sorting:** typed column filters built through the dialect, so values are quoted by the driver and never concatenated in the renderer; a raw WHERE field is appended with AND and parenthesised. Sorting is a header click cycling ascending, descending, none. Row counts are on demand because COUNT(*) is a full scan on InnoDB.
 **Export:** the statement is re-run and streamed from the driver to the file with backpressure, so the on-screen page and its row cap play no part. CSV follows RFC 4180, JSON writes safe integers as numbers and everything wider as strings, SQL uses the dialect's multi-row INSERT in batches of 500. A cancelled or failed export leaves no partial file.
 **Owner:** Remon chose the three items; two agents and Claude built them; dated 2026-10-09.
+
+## D-30 On Windows, RaSQL installs from the zip package, not from the NSIS installer
+
+**Decided:** `scripts/install-windows.ps1` builds the zip target, extracts it into
+`%LOCALAPPDATA%\Programs\RaSQL`, and registers the URL schemes, file types, a Start Menu shortcut
+and an uninstall entry itself, all under the current user. The NSIS installer is still built by CI
+for x64 downloads.
+**Why:** On Windows on ARM the NSIS installer finishes "successfully" with every `.exe` and `.dll`
+missing from the install folder, interactively and silently alike, while the unpacked build has
+them all. electron-builder packs the application with 7-Zip's executable filter, which for arm64
+is the ARM64 filter, and the installer's embedded extractor predates that filter; the affected
+entries come out empty. A zip has no such filter, and a script that writes a handful of
+`HKCU\Software\Classes` keys does everything the installer did for a per-user install.
+**Verified:** on a Snapdragon Windows 11 machine, 2026-10-09.
+**Owner:** Remon found it; Claude diagnosed and rerouted; dated 2026-10-09.

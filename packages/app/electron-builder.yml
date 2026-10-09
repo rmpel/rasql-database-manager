@@ -50,7 +50,9 @@ linux:
   category: Development
   maintainer: Remon Pel
 win:
-  target: nsis
+  # The zip is what scripts/install-windows.ps1 installs from; the NSIS installer is for x64
+  # downloads only. On arm64 the NSIS extractor drops .exe and .dll files (docs/DECISIONS.md D-30).
+  target: [zip, nsis]
 nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true
