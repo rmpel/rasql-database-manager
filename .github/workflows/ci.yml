@@ -17,6 +17,8 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version-file: .nvmrc
+          # setup-node v5 would otherwise call pnpm for its cache before corepack has enabled it.
+          package-manager-cache: false
       - run: corepack enable pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint
@@ -67,6 +69,8 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version-file: .nvmrc
+          # setup-node v5 would otherwise call pnpm for its cache before corepack has enabled it.
+          package-manager-cache: false
       - run: corepack enable pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm matrix:up
