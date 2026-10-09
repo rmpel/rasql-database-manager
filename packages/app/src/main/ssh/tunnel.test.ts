@@ -12,6 +12,9 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { Server, utils, type AuthContext, type Connection, type ParsedKey } from 'ssh2';
 import { formatKnownHostLine } from './known-hosts';
 import { SshError, SshTunnelManager, type UnknownHostInfo } from './tunnel';
+import { CLIENT_KEY, HOST_KEYS, type TestKeyPair } from './test-keys';
+
+let nextHostKey = 0;
 
 interface TestSshServer {
   port: number;
@@ -28,10 +31,14 @@ function parse(text: string): ParsedKey {
 }
 
 /** An in-process sshd that forwards TCP and Unix-socket requests like OpenSSH would. */
-function startSshServer(opts: { password?: string; allowKey?: ParsedKey }): Promise<TestSshServer> {
-  const pair = utils.generateKeyPairSync('ed25519');
-  // Derive the public half from the private key: ssh2 occasionally rejects its own generated
-  // public-key text with "Malformed OpenSSH public key", which made this test flaky.
+function startSshServer(opts: {
+  password?: string;
+  allowKey?: ParsedKey;
+  /** Fixed host key; servers without one rotate through the pool's middle keys. */
+  hostKeyPair?: TestKeyPair;
+}): Promise<TestSshServer> {
+  // Key 0 is the real sshd's, key 3 the impostor's; the rest cycle through 1 and 2.
+  const pair = opts.hostKeyPair ?? (HOST_KEYS[1 + (nextHostKey++ % 2)] as TestKeyPair);
   const hostKey = parse(pair.private).getPublicSSH();
   const state = { connections: 0, closed: 0 };
   const live = new Set<Connection>();
@@ -150,9 +157,13 @@ beforeAll(async () => {
   home = join(dir, 'home');
   userData = join(dir, 'userData');
   mkdirSync(join(home, '.ssh'), { recursive: true });
-  clientKey = utils.generateKeyPairSync('ed25519');
+  clientKey = CLIENT_KEY;
   writeFileSync(join(home, '.ssh', 'id_ed25519'), clientKey.private, { mode: 0o600 });
-  sshd = await startSshServer({ password: 'secret', allowKey: parse(clientKey.private) });
+  sshd = await startSshServer({
+    password: 'secret',
+    allowKey: parse(clientKey.private),
+    hostKeyPair: HOST_KEYS[0] as TestKeyPair,
+  });
   jump = await startSshServer({ password: 'secret' });
   echo = await echoServer();
   writeFileSync(
@@ -282,7 +293,10 @@ describe('SshTunnelManager', () => {
   });
 
   it('refuses a changed host key without asking', async () => {
-    const impostor = await startSshServer({ password: 'secret' });
+    const impostor = await startSshServer({
+      password: 'secret',
+      hostKeyPair: HOST_KEYS[3] as TestKeyPair,
+    });
     try {
       const confirm = vi.fn(async () => true);
       // known_hosts claims this port belongs to sshd's key; the impostor presents another one.

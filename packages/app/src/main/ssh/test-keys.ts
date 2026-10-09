@@ -1,0 +1,70 @@
+/**
+ * Fixed keys for the SSH tests. ssh2 occasionally generates keys its own parser rejects, which
+ * made key generation inside tests flaky on every OS. These were generated with ssh2 and verified
+ * to parse. Test material only; never used outside the test suite.
+ */
+export interface TestKeyPair {
+  private: string;
+  public: string;
+}
+
+export const HOST_KEYS: TestKeyPair[] = [
+  {
+    private: `-----BEGIN OPENSSH PRIVATE KEY-----
+b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtz
+c2gtZWQyNTUxOQAAACAZG4H+1lX9tlxVswau1xdxTXIS/x1TjPBukRXFfIn3QgAA
+AIizubUcs7m1HAAAAAtzc2gtZWQyNTUxOQAAACAZG4H+1lX9tlxVswau1xdxTXIS
+/x1TjPBukRXFfIn3QgAAAECcmzOBmkZ1Inul5zS0tte1KWENjZj3qogTAqorH5e+
+qRkbgf7WVf22XFWzBq7XF3FNchL/HVOM8G6RFcV8ifdCAAAAAAECAwQF
+-----END OPENSSH PRIVATE KEY-----
+`,
+    public: `ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBkbgf7WVf22XFWzBq7XF3FNchL/HVOM8G6RFcV8ifdC`,
+  },
+  {
+    private: `-----BEGIN OPENSSH PRIVATE KEY-----
+b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtz
+c2gtZWQyNTUxOQAAACCdNVYL4nI61KMYCywwWzduPpBom8g55hXVEHrCGRbx0QAA
+AIgfo6k7H6OpOwAAAAtzc2gtZWQyNTUxOQAAACCdNVYL4nI61KMYCywwWzduPpBo
+m8g55hXVEHrCGRbx0QAAAECHhBiU86OJryHZ9oz6qGmMugm1I4+Y4uQEDhLIiMxN
+IZ01VgvicjrUoxgLLDBbN24+kGibyDnmFdUQesIZFvHRAAAAAAECAwQF
+-----END OPENSSH PRIVATE KEY-----
+`,
+    public: `ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJ01VgvicjrUoxgLLDBbN24+kGibyDnmFdUQesIZFvHR`,
+  },
+  {
+    private: `-----BEGIN OPENSSH PRIVATE KEY-----
+b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtz
+c2gtZWQyNTUxOQAAACB6f2htxjhsbNNgYPR7+VDRfTW702LQIUJPsLheK2BBIAAA
+AIjxmdFV8ZnRVQAAAAtzc2gtZWQyNTUxOQAAACB6f2htxjhsbNNgYPR7+VDRfTW7
+02LQIUJPsLheK2BBIAAAAEDm267WmQQtMnWbwg3XaDu2D+dnLnRzgX+hG+zWcbFH
+AHp/aG3GOGxs02Bg9Hv5UNF9NbvTYtAhQk+wuF4rYEEgAAAAAAECAwQF
+-----END OPENSSH PRIVATE KEY-----
+`,
+    public: `ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHp/aG3GOGxs02Bg9Hv5UNF9NbvTYtAhQk+wuF4rYEEg`,
+  },
+  {
+    private: `-----BEGIN OPENSSH PRIVATE KEY-----
+b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtz
+c2gtZWQyNTUxOQAAACBAjNj8HhPRcAj/6yPGvnuYFhIQG5p+cFZa2MLPYHssawAA
+AIibq8mEm6vJhAAAAAtzc2gtZWQyNTUxOQAAACBAjNj8HhPRcAj/6yPGvnuYFhIQ
+G5p+cFZa2MLPYHssawAAAECbzKx25nolOXhdYBSLoj5rHYEDZygSK8jPDLsDA3kC
+skCM2PweE9FwCP/rI8a+e5gWEhAbmn5wVlrYws9geyxrAAAAAAECAwQF
+-----END OPENSSH PRIVATE KEY-----
+`,
+    public: `ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIECM2PweE9FwCP/rI8a+e5gWEhAbmn5wVlrYws9geyxr`,
+  },
+];
+
+export const CLIENT_KEY: TestKeyPair = {
+  private: `-----BEGIN OPENSSH PRIVATE KEY-----
+b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtz
+c2gtZWQyNTUxOQAAACApYZXXbolpRwNdMjEWkUBs2kR579VKIml4K7tAs82kbwAA
+AIiNQp+5jUKfuQAAAAtzc2gtZWQyNTUxOQAAACApYZXXbolpRwNdMjEWkUBs2kR5
+79VKIml4K7tAs82kbwAAAEBE5wzMafLh2XiFcqfaJpLYGzcXlOX90YRGu+1PSk8o
+2ilhldduiWlHA10yMRaRQGzaRHnv1UoiaXgru0CzzaRvAAAAAAECAwQF
+-----END OPENSSH PRIVATE KEY-----
+`,
+  public: `ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIClhldduiWlHA10yMRaRQGzaRHnv1UoiaXgru0CzzaRv`,
+};
+
+export const RSA_PUBLIC_KEY = `ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAAAgQCakgK6ayERSnQFYe0SB6RH43JxGPHS1FqICpab01S9pGlVC0OY0X5D0piNFY6ygjf9iZkW7nTSv/NugH9TBCtiyvpqgZsF8dIGnnMi5Nn93inQPTdvxLDS2X8apB++u3oAEk18CyJT5XxdZ8DGpTnHm+m3+pIpMb8cfivdEZMyHw==`;

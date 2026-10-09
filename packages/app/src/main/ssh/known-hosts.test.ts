@@ -9,10 +9,11 @@ import {
   parseKnownHosts,
   verifyKnownHost,
 } from './known-hosts';
+import { HOST_KEYS, RSA_PUBLIC_KEY, type TestKeyPair } from './test-keys';
 
+let nextKey = 0;
 function blob(): Buffer {
-  const pair = utils.generateKeyPairSync('ed25519');
-  // Parse the private key: ssh2 occasionally rejects its own generated public-key text.
+  const pair = HOST_KEYS[nextKey++ % HOST_KEYS.length] as TestKeyPair;
   const parsed = utils.parseKey(pair.private);
   if (parsed instanceof Error) throw parsed;
   return parsed.getPublicSSH();
@@ -66,7 +67,7 @@ describe('known_hosts', () => {
   });
 
   it('treats a different key type as unknown, not a mismatch', () => {
-    const rsa = utils.parseKey(utils.generateKeyPairSync('rsa', { bits: 1024 }).public);
+    const rsa = utils.parseKey(RSA_PUBLIC_KEY);
     if (rsa instanceof Error) throw rsa;
     const entries = parseKnownHosts(`db ssh-rsa ${rsa.getPublicSSH().toString('base64')}`, '/k');
     expect(verifyKnownHost(entries, 'db', 22, key).status).toBe('unknown');
