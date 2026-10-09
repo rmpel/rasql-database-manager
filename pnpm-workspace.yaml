@@ -13,3 +13,10 @@ allowBuilds:
   # ssh2's optional cpu-features binding is never needed; pure JS is fine.
   ssh2: false
   cpu-features: false
+
+# Install native binaries for both CPU types of the host OS. A pnpm that runs under emulation
+# (the standalone pnpm on Windows on ARM, or Rosetta on macOS) then still installs what the
+# project's own Node needs. Costs a few tens of megabytes per workspace.
+supportedArchitectures:
+  os: [current]
+  cpu: [x64, arm64]
