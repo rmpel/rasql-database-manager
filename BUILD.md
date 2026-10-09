@@ -24,7 +24,7 @@ Not sure which CPU you have?
 
 - **Git** to get the source.
 - **Node.js 24 LTS**, the version in `.nvmrc`. Newer Node works too, but Node 25 and later no longer ship corepack, so you install it separately; the guides say how.
-- **pnpm 12**, supplied by corepack from the `packageManager` field in `package.json`. Do not install pnpm any other way; a pnpm that runs on a different Node than your project's Node installs the wrong native binaries (the Windows on ARM guide has the story).
+- **pnpm 12**, supplied by corepack from the `packageManager` field in `package.json`. Do not install pnpm any other way; a pnpm that runs on a different Node than your project's Node installs the wrong native binaries (the Windows on ARM guide has the story). The corepack shim may live next to `node` or in npm's global folder; both are fine.
 - No compiler, no Python, no Xcode, no Visual Studio. Every native piece ships prebuilt.
 - **Docker** only if you want to run the MySQL and MariaDB engine matrix. Everything else, including the UI tests, runs without it.
 

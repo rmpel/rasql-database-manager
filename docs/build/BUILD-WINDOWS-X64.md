@@ -36,8 +36,16 @@ Open a new PowerShell window afterwards.
 
 ### pnpm through corepack
 
-Check: `pnpm -v` prints `12.x` **and** `(Get-Command pnpm).Source` is inside your Node folder
-(`C:\Program Files\nodejs\`). If missing:
+Check: `pnpm -v` prints `12.x`, and `(Get-Command pnpm).Source` is one of these two places:
+
+- `C:\Program Files\nodejs\pnpm.cmd` when Node 24 supplied corepack itself, or
+- `%APPDATA%\npm\pnpm.cmd` (`C:\Users\<you>\AppData\Roaming\npm\`) when you installed corepack with npm.
+
+Both are corepack shims that run pnpm on your own Node, which is what counts. It must **not** be
+`C:\Users\<you>\AppData\Local\pnpm\pnpm.cmd`: that is the standalone pnpm, which bundles its
+own Node; see the troubleshooting section for removing it.
+
+If pnpm is missing:
 
 ```
 corepack enable pnpm
@@ -50,9 +58,21 @@ npm install -g corepack
 corepack enable pnpm
 ```
 
+Then open a new PowerShell window and run the check again.
+
 **Do not** install pnpm with `irm https://get.pnpm.io/ps1 | iex` or with `npm install -g pnpm`.
-That standalone pnpm bundles its own Node and, on this machine type, that is the wrong one; see
-the troubleshooting section for how to remove it if it is already there.
+
+### Seeing where everything comes from
+
+When in doubt, this shows every Node, npm and pnpm on your PATH:
+
+```
+Get-Command node, npm, npx, corepack, pnpm -All -ErrorAction SilentlyContinue | Select-Object Name, Source
+```
+
+Expected: exactly one `node.exe` (under `C:\Program Files\nodejs\`), `npm` and `npx` next to it,
+and `pnpm` as described above. Anything under `AppData\Local\pnpm`, `AppData\Local\nvm`,
+`scoop` or `chocolatey` is a second installation and the usual cause of mismatched binaries.
 
 ### Docker Desktop (optional, engine matrix only)
 
