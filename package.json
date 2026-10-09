@@ -1,0 +1,37 @@
+{
+  "name": "rasql-monorepo",
+  "private": true,
+  "version": "0.0.0",
+  "description": "RaSQL: a fast, keyboard-first database manager for web developers",
+  "license": "GPL-3.0-or-later",
+  "type": "module",
+  "packageManager": "pnpm@12.10.1",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @rasql/app dev",
+    "build": "pnpm -r --filter './packages/**' build",
+    "typecheck": "pnpm -r --filter './packages/**' typecheck",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:matrix": "RASQL_TEST_MATRIX=1 vitest run --project driver-mysql",
+    "matrix:up": "docker compose -f test/matrix/docker-compose.yml up -d --wait",
+    "matrix:down": "docker compose -f test/matrix/docker-compose.yml down -v",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test:e2e": "pnpm --filter @rasql/app test:e2e"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^24.19.1",
+    "eslint": "^10.12.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.13.0",
+    "prettier": "^3.9.9",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.71.1",
+    "vitest": "^5.0.3"
+  }
+}

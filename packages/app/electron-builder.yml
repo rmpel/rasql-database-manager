@@ -1,0 +1,51 @@
+appId: nl.remonpel.rasql
+productName: RaSQL
+copyright: Copyright © 2026 Remon Pel. GPL-3.0-or-later.
+directories:
+  output: release
+  buildResources: build
+# Everything the app needs is bundled into out/ by electron-vite. The one exception is the
+# native keychain binding, which cannot be bundled and ships unpacked (docs/DECISIONS.md D-22).
+files:
+  - out/**
+  - package.json
+  - node_modules/@napi-rs/keyring/**
+  - node_modules/@napi-rs/keyring-*/**
+extraResources:
+  - from: ../localwp-addon/dist
+    to: localwp-addon
+asar: true
+asarUnpack:
+  - node_modules/@napi-rs/**
+npmRebuild: false
+protocols:
+  - name: RaSQL connection
+    schemes: [rasql, mysql, mariadb, sqlite]
+fileAssociations:
+  - ext: rasql
+    name: RaSQL connection
+    role: Editor
+  - ext: [sqlite, sqlite3, db, db3, s3db, sl3]
+    name: SQLite database
+    role: Editor
+  - ext: spf
+    name: Sequel Pro favorite
+    role: Viewer
+mac:
+  category: public.app-category.developer-tools
+  target: [dmg, zip]
+  # No Apple Developer account (docs/DECISIONS.md D-12): ad-hoc signature, no notarization.
+  identity: null
+  hardenedRuntime: false
+  darkModeSupport: true
+dmg:
+  sign: false
+linux:
+  target: [AppImage, deb]
+  category: Development
+  maintainer: Remon Pel
+win:
+  target: nsis
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true

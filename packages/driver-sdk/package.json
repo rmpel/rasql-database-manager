@@ -1,0 +1,28 @@
+{
+  "name": "@rasql/driver-sdk",
+  "version": "0.1.0",
+  "description": "Build a RaSQL database driver: transports, protocol server and client, dialect base class, conformance checks",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@rasql/driver-protocol": "workspace:*"
+  },
+  "sideEffects": false
+}

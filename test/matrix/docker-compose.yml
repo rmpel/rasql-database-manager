@@ -1,0 +1,83 @@
+# RaSQL engine matrix. Every engine the MySQL driver claims to support.
+# Start with:  pnpm matrix:up      Stop with:  pnpm matrix:down
+# Each engine gets the same fixture (fixtures/mysql) and the same credentials.
+#
+#   user: rasql   password: rasql   database: rasql   root password: root
+#
+# Ports are 33000 + a mnemonic of the version so they never clash with a local server.
+
+x-env: &env
+  MYSQL_ROOT_PASSWORD: root
+  MYSQL_DATABASE: rasql
+  MYSQL_USER: rasql
+  MYSQL_PASSWORD: rasql
+
+x-mariadb-env: &mariadb-env
+  MARIADB_ROOT_PASSWORD: root
+  MARIADB_DATABASE: rasql
+  MARIADB_USER: rasql
+  MARIADB_PASSWORD: rasql
+
+x-healthcheck: &healthcheck
+  test:
+    [
+      'CMD-SHELL',
+      'mysqladmin ping -h 127.0.0.1 -uroot -proot --silent || mariadb-admin ping -h 127.0.0.1 -uroot -proot --silent',
+    ]
+  interval: 3s
+  timeout: 3s
+  retries: 40
+
+services:
+  mysql57:
+    image: mysql:5.7
+    platform: linux/amd64 # no arm64 image exists for 5.7; runs under emulation
+    environment: *env
+    command: ['--character-set-server=utf8mb4', '--collation-server=utf8mb4_unicode_ci']
+    ports: ['33057:3306']
+    volumes: ['./fixtures/mysql:/docker-entrypoint-initdb.d:ro']
+    healthcheck: *healthcheck
+
+  mysql80:
+    image: mysql:8.0
+    environment: *env
+    command: ['--character-set-server=utf8mb4', '--collation-server=utf8mb4_0900_ai_ci']
+    ports: ['33080:3306']
+    volumes: ['./fixtures/mysql:/docker-entrypoint-initdb.d:ro']
+    healthcheck: *healthcheck
+
+  mysql84:
+    image: mysql:8.4
+    environment: *env
+    command: ['--character-set-server=utf8mb4', '--collation-server=utf8mb4_0900_ai_ci']
+    ports: ['33084:3306']
+    volumes: ['./fixtures/mysql:/docker-entrypoint-initdb.d:ro']
+    healthcheck: *healthcheck
+
+  mariadb106:
+    image: mariadb:10.6
+    environment: *mariadb-env
+    ports: ['33106:3306']
+    volumes: ['./fixtures/mysql:/docker-entrypoint-initdb.d:ro']
+    healthcheck: *healthcheck
+
+  mariadb1011:
+    image: mariadb:10.11
+    environment: *mariadb-env
+    ports: ['33111:3306']
+    volumes: ['./fixtures/mysql:/docker-entrypoint-initdb.d:ro']
+    healthcheck: *healthcheck
+
+  mariadb114:
+    image: mariadb:11.4
+    environment: *mariadb-env
+    ports: ['33114:3306']
+    volumes: ['./fixtures/mysql:/docker-entrypoint-initdb.d:ro']
+    healthcheck: *healthcheck
+
+  percona80:
+    image: percona/percona-server:8.0
+    environment: *env
+    ports: ['33880:3306']
+    volumes: ['./fixtures/mysql:/docker-entrypoint-initdb.d:ro']
+    healthcheck: *healthcheck

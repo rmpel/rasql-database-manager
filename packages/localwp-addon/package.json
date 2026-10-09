@@ -1,0 +1,16 @@
+{
+  "name": "@rasql/localwp-addon",
+  "version": "0.1.1",
+  "description": "LocalWP add-on that adds an Open in RaSQL button to every site's Database tab",
+  "license": "GPL-3.0-or-later",
+  "private": true,
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json && node scripts/assemble.mjs",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "@getflywheel/local": "^10.1.2",
+    "@types/react": "^18.3.0",
+    "react": "^18.3.1"
+  }
+}

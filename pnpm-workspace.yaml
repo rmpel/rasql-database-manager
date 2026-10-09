@@ -1,0 +1,15 @@
+packages:
+  - packages/*
+
+# pnpm refuses to run install scripts unless they are listed. Everything here is a build
+# tool or Electron itself; nothing from a database driver runs a script.
+allowBuilds:
+  electron: true
+  electron-winstaller: true
+  esbuild: true
+  '@parcel/watcher': true
+  '@swc/core': true
+  sass-embedded: true
+  # ssh2's optional cpu-features binding is never needed; pure JS is fine.
+  ssh2: false
+  cpu-features: false
