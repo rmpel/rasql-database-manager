@@ -57,6 +57,14 @@ function Find-InstalledRaSQL {
     (Join-Path ${env:ProgramFiles(x86)} 'RaSQL\RaSQL.exe')
   )
   foreach ($c in $candidates) { if ($c -and (Test-Path $c)) { return $c } }
+  # Older builds named the executable after the package; accept any non-uninstaller exe in the install folder.
+  foreach ($dir in ($candidates | ForEach-Object { Split-Path $_ -Parent } | Select-Object -Unique)) {
+    if ($dir -and (Test-Path $dir)) {
+      $exe = Get-ChildItem $dir -Filter '*.exe' -File -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -notlike 'Uninstall*' } | Select-Object -First 1
+      if ($exe) { return $exe.FullName }
+    }
+  }
   return $null
 }
 
