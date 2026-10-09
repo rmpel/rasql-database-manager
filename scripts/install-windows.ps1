@@ -37,6 +37,24 @@ if ($Running) {
   Start-Sleep -Seconds 1
 }
 
+# Remove a previous installation first and wait for it. Letting the installer do it silently can
+# race its own file copy against the old uninstaller and leave an empty install folder.
+$Previous = Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*' -ErrorAction SilentlyContinue |
+  Where-Object { $_.DisplayName -like 'RaSQL*' -and $_.UninstallString } | Select-Object -First 1
+if ($Previous) {
+  Write-Host "==> Removing the previous installation ($($Previous.DisplayName))"
+  $parts = [regex]::Match($Previous.UninstallString, '^"?([^"]+?\.exe)"?\s*(.*)$')
+  $uninst = $parts.Groups[1].Value
+  $args = @('/S') + ($parts.Groups[2].Value -split ' ' | Where-Object { $_ })
+  if (Test-Path $uninst) {
+    $u = Start-Process -FilePath $uninst -ArgumentList $args -Wait -PassThru
+    Write-Host "    uninstaller exit code: $($u.ExitCode)"
+  }
+  $oldDir = Split-Path $uninst -Parent
+  foreach ($attempt in 1..30) { if (-not (Test-Path $oldDir)) { break }; Start-Sleep -Seconds 1 }
+  if (Test-Path $oldDir) { Remove-Item $oldDir -Recurse -Force -ErrorAction SilentlyContinue }
+}
+
 Write-Host "==> Installing $($Setup.Name) silently"
 # /S = silent. The per-user install normally goes to %LOCALAPPDATA%\Programs\RaSQL and registers
 # rasql:// and the file types; the registry says where it really went.
