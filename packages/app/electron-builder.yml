@@ -1,5 +1,7 @@
 appId: nl.remonpel.rasql
 productName: RaSQL
+# The package is @rasql/app; artifacts must not be named after it (the deb builder would write into release/@rasql/).
+artifactName: ${productName}-${version}-${arch}.${ext}
 copyright: Copyright © 2026 Remon Pel. GPL-3.0-or-later.
 directories:
   output: release

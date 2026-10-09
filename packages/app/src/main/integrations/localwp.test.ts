@@ -104,6 +104,15 @@ describe('LocalWP integration', () => {
       ['Stopped Site', false],
     ]);
     const running = pendingConnectionFor(sites[0]!);
+    if (process.platform === 'win32') {
+      // No Unix sockets on Windows: a running site connects over its TCP port.
+      expect(running).toMatchObject({
+        autoConnect: true,
+        password: 'root',
+        definition: { transport: 'tcp', host: '127.0.0.1', port: 10003 },
+      });
+      return;
+    }
     expect(running).toMatchObject({
       autoConnect: true,
       password: 'root',
