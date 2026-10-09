@@ -29,6 +29,12 @@ export function bundledAddonDir(): string {
     : resolve(__dirname, '../../../localwp-addon/dist');
 }
 
+interface LocalService {
+  name?: string;
+  role?: string;
+  ports?: Record<string, number[] | number>;
+}
+
 interface SitesJson {
   [id: string]: {
     id: string;
@@ -36,8 +42,36 @@ interface SitesJson {
     domain?: string;
     path?: string;
     mysql?: { database?: string; user?: string; password?: string };
-    services?: { mysql?: { ports?: { MYSQL?: number[] } } };
+    /** Keyed by service name: mysql, mariadb, php, apache, nginx, mailpit… */
+    services?: Record<string, LocalService | undefined>;
   };
+}
+
+/** The site's database service, whatever Local named it (mysql, mariadb, …). */
+function dbService(
+  services: Record<string, LocalService | undefined> | undefined,
+): LocalService | undefined {
+  const all = services ?? {};
+  return (
+    Object.values(all).find((s) => s?.role === 'db') ??
+    all['mysql'] ??
+    all['mariadb'] ??
+    Object.values(all).find((s) => /mysql|maria/i.test(s?.name ?? ''))
+  );
+}
+
+function dbPort(
+  services: Record<string, LocalService | undefined> | undefined,
+): number | undefined {
+  const ports = dbService(services)?.ports ?? {};
+  const first = (v: number[] | number | undefined): number | undefined =>
+    Array.isArray(v) ? v[0] : typeof v === 'number' ? v : undefined;
+  return (
+    first(ports['MYSQL'] ?? ports['MARIADB'] ?? ports['DB']) ??
+    Object.values(ports)
+      .map(first)
+      .find((n) => n !== undefined)
+  );
 }
 
 const readJson = <T>(file: string, fallback: T): T => {
@@ -119,27 +153,35 @@ export function discoverSites(dataDir = localDataDir()): LocalSite[] {
   const sites = readJson<SitesJson>(join(dataDir, 'sites.json'), {});
   return Object.values(sites)
     .map((s): LocalSite => {
+      // Local keeps the socket (macOS, Linux) or the service's run directory (Windows) only while
+      // the site runs. The directory is named after the service: mysql, or mariadb for MariaDB sites.
+      const svcDir = dbService(s.services)?.name;
+      const dirs = [
+        ...new Set(['mysql', 'mariadb', svcDir].filter((d): d is string => Boolean(d))),
+      ];
       const socketPath =
         process.platform === 'win32'
           ? undefined
-          : join(dataDir, 'run', s.id, 'mysql', 'mysqld.sock');
+          : (dirs
+              .map((d) => join(dataDir, 'run', s.id, d, 'mysqld.sock'))
+              .find((p) => existsSync(p)) ??
+            join(dataDir, 'run', s.id, dirs[0] as string, 'mysqld.sock'));
+      const running =
+        process.platform === 'win32'
+          ? dirs.some((d) => existsSync(join(dataDir, 'run', s.id, d)))
+          : socketPath !== undefined && existsSync(socketPath);
       const site: LocalSite = {
         id: s.id,
         name: s.name,
         database: s.mysql?.database ?? 'local',
         user: s.mysql?.user ?? 'root',
         password: s.mysql?.password ?? 'root',
-        // macOS and Linux: the socket exists only while the site runs. Windows has no socket;
-        // Local keeps the per-site mysql run directory while it runs, which is the best signal there.
-        running:
-          socketPath !== undefined
-            ? existsSync(socketPath)
-            : existsSync(join(dataDir, 'run', s.id, 'mysql')),
+        running,
       };
       if (s.domain) site.domain = s.domain;
       if (s.path) site.path = s.path;
       if (socketPath) site.socketPath = socketPath;
-      const port = s.services?.mysql?.ports?.MYSQL?.[0];
+      const port = dbPort(s.services);
       if (port !== undefined) site.port = port;
       return site;
     })

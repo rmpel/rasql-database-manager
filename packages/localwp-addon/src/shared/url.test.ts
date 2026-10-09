@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildConnectUrl, mysqlPort } from './url';
+import { buildConnectUrl, dbService, mysqlPort } from './url';
 
 const site = {
   id: 'abc',
@@ -47,5 +47,30 @@ describe('buildConnectUrl', () => {
   it('reads the MySQL port from the services block', () => {
     expect(mysqlPort(site)).toBe(10003);
     expect(mysqlPort({ id: 'x', name: 'x' })).toBeUndefined();
+  });
+
+  it('finds a MariaDB service by role or name, and any port it exposes', () => {
+    const maria = {
+      id: 'm',
+      name: 'm',
+      services: {
+        php: { name: 'php', role: 'php' },
+        mariadb: { name: 'mariadb', role: 'db', ports: { MYSQL: [10123] } },
+      },
+    };
+    expect(dbService(maria)?.name).toBe('mariadb');
+    expect(mysqlPort(maria)).toBe(10123);
+    const odd = {
+      id: 'o',
+      name: 'o',
+      services: { mariadb: { name: 'mariadb', ports: { TCP: [10200] } } },
+    };
+    expect(mysqlPort(odd)).toBe(10200);
+    const scalar = {
+      id: 's',
+      name: 's',
+      services: { mysql: { name: 'mysql', role: 'db', ports: { MYSQL: 10300 } } },
+    };
+    expect(mysqlPort(scalar)).toBe(10300);
   });
 });

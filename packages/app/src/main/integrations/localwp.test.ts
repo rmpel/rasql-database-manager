@@ -41,6 +41,14 @@ beforeEach(() => {
         services: { mysql: { ports: { MYSQL: [10003] } } },
       },
       def: { id: 'def', name: 'Stopped Site', services: { mysql: { ports: { MYSQL: [10013] } } } },
+      ghi: {
+        id: 'ghi',
+        name: 'Maria Site',
+        services: {
+          php: { name: 'php', role: 'php' },
+          mariadb: { name: 'mariadb', role: 'db', ports: { MYSQL: [10023] } },
+        },
+      },
     }),
   );
   writeFileSync(join(local, 'enabled-addons.json'), JSON.stringify({ 'other-addon': true }));
@@ -101,8 +109,10 @@ describe('LocalWP integration', () => {
     const sites = discoverSites(local);
     expect(sites.map((s) => [s.name, s.running])).toEqual([
       ['Running Site', true],
+      ['Maria Site', false],
       ['Stopped Site', false],
     ]);
+    expect(sites.find((s) => s.name === 'Maria Site')?.port).toBe(10023);
     const running = pendingConnectionFor(sites[0]!);
     if (process.platform === 'win32') {
       // No Unix sockets on Windows: a running site connects over its TCP port.
@@ -123,7 +133,7 @@ describe('LocalWP integration', () => {
         source: 'localwp',
       },
     });
-    const stopped = pendingConnectionFor(sites[1]!);
+    const stopped = pendingConnectionFor(sites[2]!);
     expect(stopped.definition).toMatchObject({
       transport: 'tcp',
       host: '127.0.0.1',

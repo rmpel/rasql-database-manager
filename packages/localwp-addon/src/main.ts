@@ -24,10 +24,15 @@ export interface RasqlStatus {
   installed: boolean;
 }
 
-function socketPathFor(siteId: string): string | undefined {
+function socketPathFor(siteId: string, site: LocalSiteLike): string | undefined {
   if (process.platform === 'win32') return undefined;
-  const p = path.join(electron.app.getPath('userData'), 'run', siteId, 'mysql', 'mysqld.sock');
-  return fs.existsSync(p) ? p : undefined;
+  const run = path.join(electron.app.getPath('userData'), 'run', siteId);
+  const dirs = ['mysql', 'mariadb', dbService(site)?.name ?? ''].filter(Boolean);
+  for (const dir of dirs) {
+    const p = path.join(run, dir, 'mysqld.sock');
+    if (fs.existsSync(p)) return p;
+  }
+  return undefined;
 }
 
 export default function (context: LocalMain.AddonMainContext): void {
@@ -48,7 +53,18 @@ export default function (context: LocalMain.AddonMainContext): void {
 
   LocalMain.addIpcAsyncListener(IPC_OPEN, async (siteId: string): Promise<void> => {
     const site = siteData.getSite(siteId);
-    const target = { socketPath: socketPathFor(site.id), port: mysqlPort(site) };
+    const target = { socketPath: socketPathFor(site.id, site), port: mysqlPort(site) };
+    if (!target.socketPath && target.port === undefined) {
+      const seen = Object.entries(site.services ?? {})
+        .map(
+          ([k, v]) =>
+            `${k}(${v?.name ?? '?'}/${v?.role ?? '?'}: ${JSON.stringify(v?.ports ?? {})})`,
+        )
+        .join(', ');
+      throw new Error(
+        `Site ${site.name} has neither a socket path nor a database port. Services seen: ${seen || 'none'}`,
+      );
+    }
     const url = buildConnectUrl(site, target);
     localLogger.info(
       `[rasql] opening ${site.name} in RaSQL via ${target.socketPath ? 'socket' : 'tcp'}`,

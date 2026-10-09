@@ -1,9 +1,29 @@
 /** The subset of a Local site record this add-on reads. Mirrors sites.json and the Site type. */
+export interface LocalService {
+  name?: string;
+  role?: string;
+  version?: string;
+  ports?: Record<string, number[] | number>;
+}
+
 export interface LocalSiteLike {
   id: string;
   name: string;
   mysql?: { database?: string; user?: string; password?: string };
-  services?: { mysql?: { ports?: { MYSQL?: number[] } } };
+  /** Keyed by service name: mysql, mariadb, php, apache, nginx, mailpit… */
+  services?: Record<string, LocalService | undefined>;
+}
+
+/** The site's database service, whatever Local named it (mysql, mariadb, …). */
+export function dbService(site: LocalSiteLike): LocalService | undefined {
+  const services = site.services ?? {};
+  const byRole = Object.values(services).find((s) => s?.role === 'db');
+  if (byRole) return byRole;
+  return (
+    services['mysql'] ??
+    services['mariadb'] ??
+    Object.values(services).find((s) => /mysql|maria/i.test(s?.name ?? ''))
+  );
 }
 
 export interface ConnectionTarget {
@@ -40,5 +60,14 @@ export function buildConnectUrl(site: LocalSiteLike, target: ConnectionTarget): 
 }
 
 export function mysqlPort(site: LocalSiteLike): number | undefined {
-  return site.services?.mysql?.ports?.MYSQL?.[0];
+  const ports = dbService(site)?.ports ?? {};
+  const preferred = ports['MYSQL'] ?? ports['MARIADB'] ?? ports['DB'];
+  const first = (v: number[] | number | undefined): number | undefined =>
+    Array.isArray(v) ? v[0] : typeof v === 'number' ? v : undefined;
+  return (
+    first(preferred) ??
+    Object.values(ports)
+      .map(first)
+      .find((n) => n !== undefined)
+  );
 }
