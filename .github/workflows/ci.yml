@@ -45,11 +45,8 @@ jobs:
             packages/app/screenshots
           if-no-files-found: ignore
           retention-days: 7
-      # Package for the runner's OS, both CPU types, so a broken installer shows up here and the
-      # nightly release gets every variant. The target and arch matrix lives in electron-builder.yml.
-      - name: Package
-        run: pnpm --filter @rasql/app exec electron-builder --publish never
-      # The install scripts are what people actually run; exercise each on its own OS.
+      # The install scripts are what people actually run; exercise each on its own OS. They rebuild
+      # release/ for the host CPU only, so they run before the full Package step below.
       - name: Install script (macOS)
         if: matrix.os == 'macos-latest'
         run: |
@@ -72,6 +69,10 @@ jobs:
           powershell -ExecutionPolicy Bypass -File "$env:LOCALAPPDATA\Programs\RaSQL\uninstall.ps1"
           Start-Sleep -Seconds 4
           if (Get-ItemProperty 'HKCU:\Software\Classes\rasql' -ErrorAction SilentlyContinue) { throw 'uninstall left the rasql:// registration' }
+      # Package for the runner's OS, both CPU types, so a broken installer shows up here and the
+      # nightly release gets every variant. The target and arch matrix lives in electron-builder.yml.
+      - name: Package
+        run: pnpm --filter @rasql/app exec electron-builder --publish never
       - name: Upload package
         uses: actions/upload-artifact@v5
         with:
@@ -119,12 +120,14 @@ jobs:
 
           | Platform | File |
           | --- | --- |
-          | macOS Apple Silicon | RaSQL-$VERSION-arm64.dmg |
-          | macOS Intel | RaSQL-$VERSION-x64.dmg |
-          | Windows x64 installer | RaSQL-$VERSION-x64.exe |
-          | Windows ARM64 (zip, no installer: see D-30) | RaSQL-$VERSION-arm64.zip |
-          | Linux x64 | RaSQL-$VERSION-x64.AppImage, RaSQL-$VERSION-x64.deb |
-          | Linux ARM64 | RaSQL-$VERSION-arm64.AppImage, RaSQL-$VERSION-arm64.deb |
+          | macOS Apple Silicon | RaSQL-$VERSION-mac-arm64.dmg |
+          | macOS Intel | RaSQL-$VERSION-mac-x64.dmg |
+          | Windows x64 installer | RaSQL-$VERSION-win-x64.exe |
+          | Windows x64 or ARM64 without installer (unzip anywhere) | RaSQL-$VERSION-win-x64.zip, RaSQL-$VERSION-win-arm64.zip |
+          | Linux x64 | RaSQL-$VERSION-linux-x64.AppImage, RaSQL-$VERSION-linux-x64.deb |
+          | Linux ARM64 | RaSQL-$VERSION-linux-arm64.AppImage, RaSQL-$VERSION-linux-arm64.deb |
+
+          File names in this table are the intended ones; check the asset list below for the exact spelling of the Linux architecture.
 
           Commit: $GITHUB_SHA
           EOF
