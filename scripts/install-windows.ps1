@@ -18,12 +18,16 @@ try {
   npx electron-vite build | Out-Null
   Write-Host '==> Packaging (unsigned; SmartScreen will warn once, see docs/DECISIONS.md D-12)'
   if (Test-Path release) { Remove-Item release -Recurse -Force }
-  pnpm exec electron-builder --win --publish never 2>&1 | Select-String -Pattern 'building  |error'
+  # Build for the machine's own architecture; electron-builder would otherwise default to x64.
+  $Arch = if ($env:PROCESSOR_ARCHITEW6432) { $env:PROCESSOR_ARCHITEW6432 } else { $env:PROCESSOR_ARCHITECTURE }
+  $ArchFlag = if ($Arch -eq 'ARM64') { '--arm64' } else { '--x64' }
+  Write-Host "    target architecture: $ArchFlag"
+  pnpm exec electron-builder --win $ArchFlag --publish never 2>&1 | Select-String -Pattern 'building  |error'
 } finally {
   Pop-Location
 }
 
-$Setup = Get-ChildItem (Join-Path $AppDir 'release') -Filter '*Setup*.exe' | Select-Object -First 1
+$Setup = Get-ChildItem (Join-Path $AppDir 'release') -Filter '*.exe' -File | Select-Object -First 1
 if (-not $Setup) { throw 'No installer produced in packages\app\release' }
 
 $Running = Get-Process -Name 'RaSQL' -ErrorAction SilentlyContinue
