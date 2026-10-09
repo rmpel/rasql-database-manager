@@ -42,7 +42,9 @@ export function useQuery(sessionKey: string): {
       const { append, ...queryOpts } = opts;
       if (queryIdRef.current) await rasql.session.cancelQuery(queryIdRef.current);
       setState((s) => {
-        if (!append) return { ...initial, status: 'running' };
+        // A fresh run keeps the previous columns until the new ones arrive, so toolbars that depend
+        // on them (filters, export) do not flicker to disabled during a refresh.
+        if (!append) return { ...initial, columns: s.columns, status: 'running' };
         const { error: _dropped, ...rest } = s;
         return { ...rest, status: 'running' };
       });
@@ -65,9 +67,7 @@ function applyEvent(s: QueryState, e: QueryEvent): QueryState {
   switch (e.kind) {
     case 'columns':
       // Appending pages keeps the existing columns; a fresh query replaces them.
-      return s.columns.length && s.status === 'running' && s.rows.length
-        ? s
-        : { ...s, columns: e.columns };
+      return s.rows.length ? s : { ...s, columns: e.columns };
     case 'rows':
       return { ...s, rows: s.rows.concat(e.rows) };
     case 'done': {

@@ -130,11 +130,17 @@ export function TableTab({
       .catch(() => setDefinition(null));
   }, [sessionKey, schema, table]);
 
-  // Refresh a clean, visible content tab when the window comes back into focus.
+  // Refresh a clean, visible content tab when the window comes back into focus, at most once
+  // every few seconds: some window systems report focus on every click.
+  const lastFocusRefresh = useRef(0);
   useEffect(() => {
     return rasql.app.onFocus(() => {
-      if (active && view === 'content' && staged.count === 0 && state.status !== 'running')
+      const now = Date.now();
+      if (now - lastFocusRefresh.current < 5000) return;
+      if (active && view === 'content' && staged.count === 0 && state.status !== 'running') {
+        lastFocusRefresh.current = now;
         void loadPage(false);
+      }
     });
   }, [active, view, staged.count, state.status, loadPage]);
 
