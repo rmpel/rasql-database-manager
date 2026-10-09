@@ -38,12 +38,42 @@ if ($Running) {
 }
 
 Write-Host "==> Installing $($Setup.Name) silently"
-# /S = silent; the per-user install goes to %LOCALAPPDATA%\Programs\RaSQL and registers rasql:// and the file types.
+# /S = silent. The per-user install normally goes to %LOCALAPPDATA%\Programs\RaSQL and registers
+# rasql:// and the file types; the registry says where it really went.
 $proc = Start-Process -FilePath $Setup.FullName -ArgumentList '/S' -Wait -PassThru
+Write-Host "    installer exit code: $($proc.ExitCode)"
 if ($proc.ExitCode -ne 0) { throw "Installer exited with code $($proc.ExitCode)" }
 
-$Exe = Join-Path $env:LOCALAPPDATA 'Programs\RaSQL\RaSQL.exe'
-if (-not (Test-Path $Exe)) { throw "Installed executable not found at $Exe" }
+function Find-InstalledRaSQL {
+  $fromRegistry = @('HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*',
+                    'HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*',
+                    'HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*') |
+    ForEach-Object { Get-ItemProperty $_ -ErrorAction SilentlyContinue } |
+    Where-Object { $_.DisplayName -like 'RaSQL*' -and $_.InstallLocation } |
+    ForEach-Object { Join-Path $_.InstallLocation 'RaSQL.exe' }
+  $candidates = @($fromRegistry) + @(
+    (Join-Path $env:LOCALAPPDATA 'Programs\RaSQL\RaSQL.exe'),
+    (Join-Path $env:ProgramFiles 'RaSQL\RaSQL.exe'),
+    (Join-Path ${env:ProgramFiles(x86)} 'RaSQL\RaSQL.exe')
+  )
+  foreach ($c in $candidates) { if ($c -and (Test-Path $c)) { return $c } }
+  return $null
+}
+
+$Exe = $null
+foreach ($attempt in 1..10) {
+  $Exe = Find-InstalledRaSQL
+  if ($Exe) { break }
+  Start-Sleep -Seconds 1
+}
+if (-not $Exe) {
+  Write-Host 'Installed executable not found. Registry entries named RaSQL:'
+  Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*' -ErrorAction SilentlyContinue |
+    Where-Object { $_.DisplayName -like 'RaSQL*' } | Format-List DisplayName, DisplayVersion, InstallLocation, UninstallString
+  Write-Host "Contents of $env:LOCALAPPDATA\Programs:"
+  Get-ChildItem (Join-Path $env:LOCALAPPDATA 'Programs') -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Name
+  throw "The installer finished but RaSQL.exe was not found; run the installer by hand once: $($Setup.FullName)"
+}
 $Version = (Get-Item $Exe).VersionInfo.ProductVersion
-Write-Host "==> Installed RaSQL $Version"
+Write-Host "==> Installed RaSQL $Version at $Exe"
 if (-not $NoLaunch) { Start-Process -FilePath $Exe }
