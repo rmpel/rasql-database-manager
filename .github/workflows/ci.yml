@@ -28,6 +28,21 @@ jobs:
         run: pnpm test:e2e
         env:
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
+      # Package for the runner's own OS so a broken installer shows up here, not on a test machine.
+      - name: Package
+        run: pnpm --filter @rasql/app exec electron-builder --publish never
+      - name: Upload package
+        uses: actions/upload-artifact@v4
+        with:
+          name: rasql-${{ matrix.os }}
+          path: |
+            packages/app/release/*.dmg
+            packages/app/release/*.zip
+            packages/app/release/*.AppImage
+            packages/app/release/*.deb
+            packages/app/release/*.exe
+          if-no-files-found: error
+          retention-days: 14
 
   engine-matrix:
     runs-on: ubuntu-latest

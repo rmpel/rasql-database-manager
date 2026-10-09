@@ -27,6 +27,9 @@ pnpm dev            # Electron with hot reload
 pnpm matrix:up      # MySQL 5.7, 8.0, 8.4, MariaDB 10.6, 10.11, 11.4, Percona 8.0 in Docker
 pnpm test:matrix    # MySQL driver conformance against every engine that is up
 pnpm --filter @rasql/app package:mac   # unsigned .dmg and .zip in packages/app/release
+pnpm install:mac       # build, package, (re)install ~/Applications/RaSQL.app, launch
+pnpm install:linux     # same for Linux: AppImage under ~/.local/bin plus a desktop entry (--deb for dpkg)
+pnpm install:windows   # same for Windows: silent per-user NSIS install, from PowerShell
 ```
 
 Layout: `packages/driver-protocol` and `packages/driver-sdk` are what a driver author needs (MIT), `packages/driver-sqlite` and `packages/driver-mysql` are the bundled drivers, `packages/app` is the Electron application. See `CONTRIBUTING.md`.

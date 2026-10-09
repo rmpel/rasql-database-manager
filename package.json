@@ -21,7 +21,10 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "test:e2e": "pnpm --filter @rasql/app test:e2e"
+    "test:e2e": "pnpm --filter @rasql/app test:e2e",
+    "install:mac": "scripts/install-mac.sh",
+    "install:linux": "scripts/install-linux.sh",
+    "install:windows": "powershell -ExecutionPolicy Bypass -File scripts/install-windows.ps1"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
