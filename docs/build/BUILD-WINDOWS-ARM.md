@@ -10,6 +10,17 @@ steps whose check passes. Commands are meant to be pasted one block at a time.
 All commands below are for **PowerShell** (the blue one, or Windows Terminal). Not the Command
 Prompt. No administrator rights are needed for anything in this guide.
 
+### Allow scripts in PowerShell (once per user account)
+
+Windows ships PowerShell with scripts disabled, and pnpm's launcher is a script. Allow locally
+created and signed scripts for your own account, which needs no administrator:
+
+```
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+```
+
+Check: `Get-ExecutionPolicy -Scope CurrentUser` prints `RemoteSigned`.
+
 ### Git
 
 Check: `git --version`. If missing:
@@ -45,17 +56,20 @@ Both are corepack shims that run pnpm on your own Node, which is what counts. It
 `C:\Users\<you>\AppData\Local\pnpm\pnpm.cmd`: that is the standalone pnpm, which bundles its
 own Node; see the troubleshooting section for removing it.
 
-If pnpm is missing:
+If pnpm is missing, let corepack put its shim in npm's global folder, which your account may
+write to and which is already on your PATH. Plain `corepack enable pnpm` tries to write into
+`C:\Program Files\nodejs` and fails with `EPERM` unless PowerShell runs as administrator.
 
 ```
-corepack enable pnpm
+New-Item -ItemType Directory -Force "$env:APPDATA\npm" | Out-Null
+corepack enable --install-directory "$env:APPDATA\npm" pnpm
 ```
 
 If `corepack` is not recognised, your Node is newer than 24 and no longer bundles it:
 
 ```
 npm install -g corepack
-corepack enable pnpm
+corepack enable --install-directory "$env:APPDATA\npm" pnpm
 ```
 
 Then open a new PowerShell window and run the check again.
@@ -156,8 +170,12 @@ pnpm matrix:down     # removes the containers and their data
   Open a new PowerShell window, then `corepack enable pnpm` and check `(Get-Command pnpm).Source`.
 
 - **`corepack` is not recognised**: Node 25 and later do not bundle it; `npm install -g corepack`.
-- **`running scripts is disabled on this system`**: the install script is started with
-  `-ExecutionPolicy Bypass` by `pnpm install:windows`; if you run the `.ps1` by hand, add that flag.
+- **`running scripts is disabled on this system`**: set the per-user policy once,
+  `Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser` (step 1). The install
+  script itself passes `-ExecutionPolicy Bypass`, but pnpm's own launcher is a script too.
+- **`corepack enable` fails with `EPERM … C:\Program Files\nodejs\pnpm`**: it tried to write next
+  to `node.exe`. Use `corepack enable --install-directory "$env:APPDATA\npm" pnpm` as in step 1,
+  or run that single command in a PowerShell started as administrator.
 - **Errors mentioning `node-gyp`, Visual Studio or Python** during `pnpm install`: a native
   package tried to compile because no prebuilt binary matched. That should never happen on a
   supported platform; please report it with the package name from the error.
