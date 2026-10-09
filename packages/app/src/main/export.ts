@@ -186,7 +186,14 @@ export async function runExport(opts: ExportCoreOptions): Promise<ExportSummary>
   } catch (err) {
     // Buffered writes fail once the stream is destroyed; swallow those, the file is deleted anyway.
     stream.on('error', () => undefined);
-    stream.destroy();
+    // The file is opened asynchronously; deleting it before the stream has closed can race a
+    // pending open that recreates it. Wait for 'close', then remove it.
+    if (!stream.closed) {
+      await new Promise<void>((resolve) => {
+        stream.once('close', () => resolve());
+        stream.destroy();
+      });
+    }
     await unlink(filePath).catch(() => undefined);
     if (signal.aborted && !(err instanceof ExportCancelled)) throw new ExportCancelled();
     throw err;

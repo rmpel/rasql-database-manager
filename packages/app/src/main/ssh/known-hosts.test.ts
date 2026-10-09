@@ -12,7 +12,8 @@ import {
 
 function blob(): Buffer {
   const pair = utils.generateKeyPairSync('ed25519');
-  const parsed = utils.parseKey(pair.public);
+  // Parse the private key: ssh2 occasionally rejects its own generated public-key text.
+  const parsed = utils.parseKey(pair.private);
   if (parsed instanceof Error) throw parsed;
   return parsed.getPublicSSH();
 }
