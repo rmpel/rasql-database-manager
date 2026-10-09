@@ -9,6 +9,7 @@ import {
   IPC_STATUS,
   RASQL_RELEASES_URL,
   type LocalSiteLike,
+  dbService,
 } from './shared/url';
 
 // Local's main process is Electron; the add-on borrows what it needs without a dependency.
