@@ -5,6 +5,7 @@ import { useQuery } from '../hooks/useQuery';
 import { keyColumnsFor, useStagedChanges, type RowRef } from '../hooks/useStagedChanges';
 import { DataGrid, type SortState } from './DataGrid';
 import { ExportButton } from './ExportButton';
+import { CellInspector } from './CellInspector';
 import {
   activeFilterCount,
   compileFilters,
@@ -68,10 +69,21 @@ export function TableTab({
   const [sort, setSort] = useState<SortState | null>(null);
   const [exportSql, setExportSql] = useState<string | null>(null);
   const [references, setReferences] = useState<IncomingReference[] | null>(null);
+  const [selectedCell, setSelectedCell] = useState<{ ref: RowRef; col: number } | null>(null);
+  const [showInspector, setShowInspector] = useState(false);
   const [referencesOpen, setReferencesOpen] = useState(false);
   const referencesMenu = useRef<HTMLSpanElement>(null);
 
   const fkByColumn = useMemo(() => foreignKeyByColumn(definition), [definition]);
+  const inspectedColumn = selectedCell ? state.columns[selectedCell.col] : undefined;
+  const inspectedValue = useMemo(() => {
+    if (!selectedCell) return undefined;
+    const edit = staged.editAt(selectedCell.ref, selectedCell.col);
+    if (edit) return edit;
+    return selectedCell.ref.kind === 'row'
+      ? state.rows[selectedCell.ref.index]?.[selectedCell.col]
+      : undefined;
+  }, [selectedCell, staged, state.rows]);
   const columnName = useCallback(
     (i: number) => state.columns[i]?.originalName ?? state.columns[i]?.name ?? '',
     [state.columns],
@@ -349,6 +361,9 @@ export function TableTab({
         e.preventDefault();
         setShowFilters(true);
         setFocusToken((t) => t + 1);
+      } else if (mod && e.key === 'i') {
+        e.preventDefault();
+        setShowInspector((v) => !v);
       } else if (mod && e.key === 's' && editable) {
         e.preventDefault();
         void commit();
@@ -402,6 +417,13 @@ export function TableTab({
           title="Filter (⌘F)"
         >
           Filter{filterCount ? ` (${filterCount})` : ''}
+        </button>
+        <button
+          className={showInspector ? 'active' : ''}
+          onClick={() => setShowInspector((v) => !v)}
+          title="Inspect the selected cell (⌘I)"
+        >
+          Inspector
         </button>
         <ExportButton
           sessionKey={sessionKey}
@@ -508,16 +530,42 @@ export function TableTab({
         />
       )}
       {view === 'content' ? (
-        <DataGrid
-          columns={state.columns}
-          rows={state.rows}
-          onReachEnd={() => void loadPage(true)}
-          sort={sort}
-          onSort={(column) => void toggleSort(column)}
-          foreignKeyColumns={foreignKeyColumns}
-          onFollowForeignKey={followForeignKey}
-          {...(editable ? { staged, selectedRow, onSelectRow: setSelectedRow } : {})}
-        />
+        <div className="grid-with-inspector">
+          <DataGrid
+            columns={state.columns}
+            rows={state.rows}
+            onReachEnd={() => void loadPage(true)}
+            sort={sort}
+            onSort={(column) => void toggleSort(column)}
+            foreignKeyColumns={foreignKeyColumns}
+            onFollowForeignKey={followForeignKey}
+            selectedCell={selectedCell}
+            onSelectCell={setSelectedCell}
+            {...(editable ? { staged, selectedRow, onSelectRow: setSelectedRow } : {})}
+          />
+          {showInspector && selectedCell && inspectedValue && inspectedColumn && (
+            <CellInspector
+              cellKey={`${selectedCell.ref.kind === 'row' ? selectedCell.ref.index : `i${selectedCell.ref.id}`}:${selectedCell.col}`}
+              column={inspectedColumn}
+              value={inspectedValue}
+              editable={editable && selectedCell.ref.kind === 'row'}
+              onStage={(v) =>
+                staged.stageEdit(
+                  selectedCell.ref,
+                  selectedCell.col,
+                  v,
+                  state.rows[selectedCell.ref.kind === 'row' ? selectedCell.ref.index : -1]?.[
+                    selectedCell.col
+                  ],
+                )
+              }
+              onClose={() => setShowInspector(false)}
+            />
+          )}
+          {showInspector && !selectedCell && (
+            <div className="inspector inspector-empty">Click a cell to inspect it.</div>
+          )}
+        </div>
       ) : (
         <Structure definition={definition} />
       )}

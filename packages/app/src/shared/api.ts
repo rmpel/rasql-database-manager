@@ -184,6 +184,13 @@ export interface ExportProgress {
   filePath?: string;
 }
 
+/** A file the user picked for a cell, read in the main process. */
+export interface PickedFile {
+  name: string;
+  bytes: Uint8Array;
+  mime?: string;
+}
+
 export interface QueryEventMessage {
   queryId: string;
   event: QueryEvent;
@@ -254,6 +261,15 @@ export interface RasqlApi {
       kind: 'table' | 'view';
     }): Promise<TableMenuAction | null>;
   };
+  /** File operations for the cell inspector: replace from file, save, external editor round trip. */
+  cells: {
+    pickFile(opts?: { title?: string }): Promise<PickedFile | null>;
+    saveFile(bytes: Uint8Array, suggestedName: string): Promise<string | null>;
+    /** Writes a temp file and opens it with the default application; returns its path for reloading. */
+    openExternally(bytes: Uint8Array, extension: string): Promise<{ path: string }>;
+    /** Reads back a file this session saved, picked or opened externally; other paths are refused. */
+    readFile(path: string): Promise<Uint8Array>;
+  };
   clipboard: {
     writeText(text: string): Promise<void>;
   };
@@ -318,6 +334,10 @@ export const IPC = {
   dialogConfirm: 'dialog:confirm',
   appFocus: 'app:focus',
   appRevealPath: 'app:revealPath',
+  cellsPickFile: 'cells:pickFile',
+  cellsSaveFile: 'cells:saveFile',
+  cellsOpenExternally: 'cells:openExternally',
+  cellsReadFile: 'cells:readFile',
   dialogOpenFile: 'dialog:openFile',
   appShowLauncher: 'app:showLauncher',
   appCloseWindow: 'app:closeWindow',

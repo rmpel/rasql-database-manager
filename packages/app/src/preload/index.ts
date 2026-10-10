@@ -62,6 +62,13 @@ const api: RasqlApi = {
   menu: {
     tableContext: (ctx) => ipcRenderer.invoke(IPC.menuTableContext, ctx),
   },
+  cells: {
+    pickFile: (opts) => ipcRenderer.invoke(IPC.cellsPickFile, opts),
+    saveFile: (bytes, suggestedName) => ipcRenderer.invoke(IPC.cellsSaveFile, bytes, suggestedName),
+    openExternally: (bytes, extension) =>
+      ipcRenderer.invoke(IPC.cellsOpenExternally, bytes, extension),
+    readFile: (path) => ipcRenderer.invoke(IPC.cellsReadFile, path),
+  },
   clipboard: {
     writeText: (text) => ipcRenderer.invoke(IPC.clipboardWriteText, text),
   },

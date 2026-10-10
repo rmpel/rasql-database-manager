@@ -224,3 +224,20 @@ a separate, deliberate act.
 distribution channel (GOAL.md section 9), and a rolling pre-release gives testers on other machines
 a build of exactly the commit they are looking at without anyone packaging by hand.
 **Owner:** Remon asked; Claude shaped; dated 2026-10-09.
+
+## D-32 Foreign keys are followed in both directions; binary data is edited only through the inspector
+
+**Decided:** A cell in a foreign-key column carries a link that opens the referenced table with the
+filter bar pre-applied to the referenced key; a References menu on a selected row lists the tables
+whose foreign keys point at this table and opens the chosen one filtered to the row. A cell
+inspector shows the selected cell in full: text with charset reinterpretation, JSON prettified
+and editable, bytes with magic-number detection, image preview and a hex dump, base64 text decoded
+the same way, and bit columns as toggles. Bytes are never edited in the grid: the inspector offers
+replace-from-file, save-to-file, open in an external application with reload-from-file, and NULL.
+All edits go through the staged-changes mechanism and commit like any other.
+**Why:** Following keys is the daily navigation of a relational database and needs no new query
+machinery, only filters. Byte-level editing is not something people do by hand; a file round trip
+covers every format without RaSQL growing editors. Detection runs in the renderer on bytes the
+driver already delivers typed, which is what principle 4 bought.
+**Owner:** Remon approved the design; Claude built it with one agent for the plumbing; dated
+2026-10-10.

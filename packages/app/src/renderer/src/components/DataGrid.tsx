@@ -27,6 +27,9 @@ interface Props {
   /** Column indexes whose values point at another table; cells get a link to follow. */
   foreignKeyColumns?: ReadonlySet<number>;
   onFollowForeignKey?: (ref: RowRef, col: number) => void;
+  /** Single-click selection of one cell, for the inspector. */
+  selectedCell?: { ref: RowRef; col: number } | null;
+  onSelectCell?: (cell: { ref: RowRef; col: number }) => void;
 }
 
 interface Editing {
@@ -64,6 +67,8 @@ export function DataGrid({
   onSelectRow,
   foreignKeyColumns,
   onFollowForeignKey,
+  selectedCell,
+  onSelectCell,
 }: Props): React.JSX.Element {
   const viewport = useRef<HTMLDivElement>(null);
   const [scrollTop, setScrollTop] = useState(0);
@@ -254,10 +259,13 @@ export function DataGrid({
                   const edited = ref.kind === 'row' && staged?.editAt(ref, col) !== undefined;
                   const value = cellValue(ref, col);
                   const unset = ref.kind === 'insert' && staged?.editAt(ref, col) === null;
+                  const isSelected =
+                    selectedCell && sameRef(selectedCell.ref, ref) && selectedCell.col === col;
                   return (
                     <td
                       key={col}
-                      className={`grid-cell grid-cell-${value.t}${edited ? ' edited' : ''}${isEditing ? ' editing' : ''}`}
+                      className={`grid-cell grid-cell-${value.t}${edited ? ' edited' : ''}${isEditing ? ' editing' : ''}${isSelected ? ' selected-cell' : ''}`}
+                      onClick={() => onSelectCell?.({ ref, col })}
                       onDoubleClick={() => startEdit(ref, col)}
                       title={isEditableType(meta) ? undefined : 'Not editable as text'}
                     >

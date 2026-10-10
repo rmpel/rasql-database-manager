@@ -5,6 +5,7 @@ import { ConnectionStore } from './connections';
 import { HistoryStore } from './history';
 import { createCredentialProvider } from './credentials';
 import { parseLaunchArgument, redactUrl } from './deeplink';
+import { registerCellIpc } from './cells';
 import { registerExportIpc } from './export';
 import { registerIpc } from './ipc';
 import { installMenu } from './menu';
@@ -79,6 +80,7 @@ if (!app.requestSingleInstanceLock()) {
 
     registerIpc({ store, credentials, sessions, windows, history });
     registerExportIpc({ sessions });
+    registerCellIpc();
     registerSshIpc({ credentials });
     installMenu(
       () => windows.showLauncher(),

@@ -85,15 +85,19 @@ The minimum that lets a developer replace their current tool.
 - 1Password credential provider.
 - Global search across all tables of a database.
 - Windows and Linux builds.
+- More engines, each as a driver behind the same protocol: PostgreSQL (the obvious next relational
+  engine), MSSQL (moved up from Phase 3), and MongoDB. MongoDB maps onto the protocol with
+  collections as tables, documents as rows with an `_id` column and one JSON column, filters
+  compiled to query documents instead of WHERE clauses, and a query tab that takes `find` and
+  `aggregate` expressions; the dialect surface needs a design note before it starts.
 
 ### Phase 3: depth
 
-- MSSQL driver.
 - Schema diff between two connections, producing migration SQL.
 - Users and privileges editor.
 - Serialization-aware search and replace across a database.
 - Out-of-process drivers in other languages, if demand exists.
-- Further drivers by the community. PostgreSQL is the obvious one. It is not planned by the core team; it is a driver someone writes.
+- Further drivers by the community, on the MIT protocol and SDK.
 
 ## 6. Non-goals
 
