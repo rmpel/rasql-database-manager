@@ -85,7 +85,7 @@ renderer saw it.
 
 ## D-12 No Apple Developer account; unsigned builds, documented honestly
 
-**Decided:** Builds are ad-hoc signed and not notarized. The first launch on macOS requires the user to allow the app in System Settings. Homebrew users may use `--no-quarantine`. The README explains this with one screenshot. Revisit at the first stable release, possibly funded through GitHub Sponsors or Open Collective.
+**Decided:** Builds are ad-hoc signed and not notarized. The first launch on macOS requires the user to allow the app in System Settings. The README explains this with one screenshot. (Amended 2026-10-10: Homebrew removed `--no-quarantine` and, since 2026-09-01, disables casks in its own repository that fail Gatekeeper, so RaSQL ships through its own tap instead; see D-38.) Revisit at the first stable release, possibly funded through GitHub Sponsors or Open Collective.
 **Why:** The project is free and the author will not pay the yearly fee for it.
 **Owner:** Remon.
 
@@ -335,3 +335,20 @@ work. Moves are minimal: the longest run of columns already in order stays put.
 dropdown instead of a raw string. Keeping SQL generation in the driver keeps the editor engine
 neutral, and showing the exact statement keeps it honest.
 **Owner:** Remon asked for it for V1; Claude built it; dated 2026-10-10.
+
+## D-38 Versioned releases from tags, and a Homebrew cask in RaSQL's own tap
+
+**Decided:** Pushing a tag `vX.Y.Z` that matches `packages/app/package.json` runs the full CI and
+publishes a normal GitHub release with every platform's files; the rolling `nightly` stays for
+master. The release job then writes the cask `Casks/rasql.rb` into `rmpel/homebrew-rasql` with
+`scripts/update-tap.sh`, which takes the checksums of the two macOS zips. CI pushes to the tap with
+a deploy key in the `TAP_DEPLOY_KEY` secret; without it the job leaves a notice and the script is
+run by hand. Users install with `brew install --cask rmpel/rasql/rasql` and update with
+`brew upgrade`. The macOS bundle is now ad-hoc signed as a whole (`identity: "-"`), so a
+quarantined download offers Open Anyway instead of reporting the app as damaged. The cask states
+in its caveats that the first launch must be allowed and does not strip the quarantine flag.
+**Why:** Homebrew 5 removed `--no-quarantine`, and the main cask repository disables casks that
+fail Gatekeeper since 2026-09-01; notarization needs a paid Apple account (D-12). A tap is not
+held to that rule and stays fully under the project's control. Bypassing Gatekeeper for every user
+is a decision the user should make, not the installer.
+**Owner:** Remon chose a tap without signing; Claude built it; dated 2026-10-10.

@@ -71,7 +71,7 @@ The minimum that lets a developer replace their current tool.
 - Command palette.
 - One-click open: `rasql://` URL scheme, `mysql://` URLs, `.rasql` and `.spf` files, CLI entry point, SQLite file association.
 - LocalWP site discovery by reading Local's own sites registry, no add-on required.
-- Unsigned macOS build published on GitHub Releases with a Homebrew cask.
+- Unsigned macOS build published on GitHub Releases with a Homebrew cask in RaSQL's own tap (`brew install --cask rmpel/rasql/rasql`).
 
 ### Phase 2: the web developer edge
 
@@ -133,9 +133,9 @@ Stated so they do not creep in.
 
 ## 9. Distribution
 
-- GitHub Releases is the source of truth. Homebrew cask for macOS. Winget and a `.deb`/AppImage when Windows and Linux builds arrive.
+- GitHub Releases is the source of truth. Homebrew cask for macOS, in the project's own tap: the main Homebrew cask repository only accepts apps that pass Gatekeeper. Winget and a `.deb`/AppImage when Windows and Linux builds arrive.
 - Built-in update check against GitHub Releases, user-triggered or on launch, never silent.
-- **Code signing.** There is no Apple Developer account and no intention to pay the yearly fee while the project is free. Consequence: macOS builds are ad-hoc signed and not notarized. On current macOS the first launch is blocked by Gatekeeper and the user must allow it in System Settings under Privacy and Security. Homebrew users can install with `--no-quarantine`. The README and the download page must explain this honestly and in one screenshot. If the project gains traction, GitHub Sponsors or Open Collective can fund the fee; that decision is revisited at the first stable release.
+- **Code signing.** There is no Apple Developer account and no intention to pay the yearly fee while the project is free. Consequence: macOS builds are ad-hoc signed and not notarized. On current macOS the first launch is blocked by Gatekeeper and the user must allow it in System Settings under Privacy and Security. Homebrew no longer offers a way around this (`--no-quarantine` is gone), so Homebrew users allow the app once too. The README and the download page must explain this honestly and in one screenshot. If the project gains traction, GitHub Sponsors or Open Collective can fund the fee; that decision is revisited at the first stable release.
 - Windows builds will trigger a SmartScreen warning for the same reason. Linux has no equivalent problem.
 
 ## 10. Identity

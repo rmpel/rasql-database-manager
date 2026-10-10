@@ -45,8 +45,9 @@ mac:
       arch: [arm64, x64]
     - target: zip
       arch: [arm64, x64]
-  # No Apple Developer account (docs/DECISIONS.md D-12): ad-hoc signature, no notarization.
-  identity: null
+  # No Apple Developer account (docs/DECISIONS.md D-12): an ad-hoc signature over the whole bundle
+  # ("-"), no notarization. Without it a quarantined download reads as damaged (D-38).
+  identity: '-'
   hardenedRuntime: false
   darkModeSupport: true
 dmg:
