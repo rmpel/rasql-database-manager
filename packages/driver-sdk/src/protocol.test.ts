@@ -371,6 +371,47 @@ describe('BaseDialect', () => {
     );
   });
 
+  it('builds text matching with escaped patterns, between, emptiness and groups', () => {
+    const where = (w: Parameters<FakeDialect['buildCount']>[1]['where']): string =>
+      d.buildCount({ name: 't' }, { where: w ?? [] });
+    expect(where([{ column: 'a', op: 'contains', value: V.text("50%_off!'") }])).toBe(
+      `SELECT COUNT(*) FROM "t" WHERE "a" LIKE '%50!%!_off!!''%' ESCAPE '!'`,
+    );
+    expect(where([{ column: 'a', op: 'starts with', value: V.text('wp_') }])).toBe(
+      `SELECT COUNT(*) FROM "t" WHERE "a" LIKE 'wp!_%' ESCAPE '!'`,
+    );
+    expect(where([{ column: 'a', op: 'ends with', value: V.int('7') }])).toBe(
+      `SELECT COUNT(*) FROM "t" WHERE "a" LIKE '%7' ESCAPE '!'`,
+    );
+    expect(where([{ column: 'a', op: 'not contains', value: V.text('x') }])).toBe(
+      `SELECT COUNT(*) FROM "t" WHERE "a" NOT LIKE '%x%' ESCAPE '!'`,
+    );
+    expect(where([{ column: 'n', op: 'not between', value: [V.int('3'), V.int('5')] }])).toBe(
+      `SELECT COUNT(*) FROM "t" WHERE "n" NOT BETWEEN 3 AND 5`,
+    );
+    expect(
+      where([
+        { column: 'a', op: 'is empty' },
+        { column: 'b', op: 'is not empty' },
+      ]),
+    ).toBe(`SELECT COUNT(*) FROM "t" WHERE "a" = '' AND "b" <> ''`);
+    expect(
+      where([
+        {
+          match: 'any',
+          filters: [
+            { column: 'n', op: '<', value: V.int('3') },
+            { column: 'n', op: '>', value: V.int('5') },
+          ],
+        },
+        { match: 'all', filters: [{ column: 'a', op: '=', value: V.text('x') }] },
+        { match: 'any', filters: [] },
+      ]),
+    ).toBe(`SELECT COUNT(*) FROM "t" WHERE ("n" < 3 OR "n" > 5) AND "a" = 'x'`);
+    expect(() => where([{ column: 'a', op: 'regexp', value: V.text('x') }])).toThrow(DriverError);
+    expect(() => where([{ column: 'n', op: 'between', value: [V.int('1')] }])).toThrow(DriverError);
+  });
+
   it('builds a multi-row insert', () => {
     expect(
       d.buildInsertMany(

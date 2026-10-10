@@ -3,6 +3,7 @@ import type {
   Dialect,
   DialectInfo,
   Filter,
+  FilterNode,
   KeyMatch,
   SelectOptions,
   StatementClass,
@@ -11,7 +12,7 @@ import type {
   TableRef,
   Value,
 } from '@rasql/driver-protocol';
-import { DriverError, V } from '@rasql/driver-protocol';
+import { DriverError, V, isFilterGroup } from '@rasql/driver-protocol';
 
 /** Remove -- line comments, # line comments and /* block comments *\/ outside of string literals. */
 export function stripSqlComments(sql: string): string {
@@ -228,6 +229,20 @@ export abstract class BaseDialect implements Dialect {
     return out;
   }
 
+  /** Text for a LIKE pattern from a filter value, with %, _ and the escape character escaped. */
+  protected likePattern(f: Filter, before: string, after: string): string {
+    const v = f.value;
+    if (v === undefined || Array.isArray(v) || v.t === 'null') {
+      throw new DriverError('UNSUPPORTED', `Filter ${f.op} on ${f.column} needs one value`);
+    }
+    const text =
+      'v' in v && (typeof v.v === 'string' || typeof v.v === 'number') ? String(v.v) : null;
+    if (text === null)
+      throw new DriverError('UNSUPPORTED', `Filter ${f.op} on ${f.column} needs text`);
+    const escaped = text.replace(/[!%_]/g, (c) => `!${c}`);
+    return `${this.quoteLiteral({ t: 'text', v: `${before}${escaped}${after}` })} ESCAPE '!'`;
+  }
+
   protected filterToSql(f: Filter): string {
     const col = this.quoteIdentifier(f.column);
     const one = (): string => {
@@ -250,10 +265,29 @@ export abstract class BaseDialect implements Dialect {
         return `${col} IN (${many().join(', ')})`;
       case 'not in':
         return `${col} NOT IN (${many().join(', ')})`;
-      case 'between': {
-        const [a, b] = many();
-        return `${col} BETWEEN ${a} AND ${b}`;
+      case 'between':
+      case 'not between': {
+        const list = many();
+        if (list.length !== 2)
+          throw new DriverError('UNSUPPORTED', `Filter ${f.op} on ${f.column} needs two values`);
+        return `${col} ${f.op === 'between' ? 'BETWEEN' : 'NOT BETWEEN'} ${list[0]} AND ${list[1]}`;
       }
+      case 'contains':
+        return `${col} LIKE ${this.likePattern(f, '%', '%')}`;
+      case 'not contains':
+        return `${col} NOT LIKE ${this.likePattern(f, '%', '%')}`;
+      case 'starts with':
+        return `${col} LIKE ${this.likePattern(f, '', '%')}`;
+      case 'ends with':
+        return `${col} LIKE ${this.likePattern(f, '%', '')}`;
+      case 'is empty':
+        return `${col} = ''`;
+      case 'is not empty':
+        return `${col} <> ''`;
+      case 'regexp':
+      case 'not regexp':
+      case 'has member':
+        throw new DriverError('UNSUPPORTED', `This driver cannot filter with ${f.op}`);
       case 'like':
         return `${col} LIKE ${one()}`;
       case 'not like':
@@ -263,8 +297,18 @@ export abstract class BaseDialect implements Dialect {
     }
   }
 
-  protected whereClause(where?: Filter[], whereSql?: string): string {
-    const parts = (where ?? []).map((f) => this.filterToSql(f));
+  protected whereClause(where?: FilterNode[], whereSql?: string): string {
+    const parts: string[] = [];
+    for (const node of where ?? []) {
+      if (!isFilterGroup(node)) {
+        parts.push(this.filterToSql(node));
+        continue;
+      }
+      const inner = node.filters.map((f) => this.filterToSql(f));
+      if (inner.length === 1) parts.push(inner[0] as string);
+      else if (inner.length > 1)
+        parts.push(`(${inner.join(node.match === 'any' ? ' OR ' : ' AND ')})`);
+    }
     if (whereSql && whereSql.trim()) parts.push(`(${whereSql.trim()})`);
     return parts.length ? ` WHERE ${parts.join(' AND ')}` : '';
   }

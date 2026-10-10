@@ -36,27 +36,51 @@ test('filters, raw WHERE, sorting and row counts on a table', async () => {
     const status = pane.locator('.toolbar-status');
     await expect(status).toContainText('60 rows loaded');
 
-    // Column filter: name LIKE 'Widget%'.
+    // One rule is there from the start, as in Sequel Pro. Picking a text column offers contains.
     await pane.getByRole('button', { name: /^Filter/ }).click();
     const bar = pane.locator('.filter-bar');
-    await bar.getByRole('button', { name: '+ Filter' }).click();
-    await bar.locator('.filter-row select').first().selectOption('name');
-    await bar.locator('.filter-row select').nth(1).selectOption('like');
-    await bar.locator('.filter-value').fill('Widget%');
+    const rules = bar.locator('.filter-row');
+    await expect(rules).toHaveCount(1);
+    await rules.first().locator('select').first().selectOption('name');
+    await expect(rules.first().locator('select').nth(1)).toHaveValue('contains');
+    await rules.first().locator('select').nth(1).selectOption('starts with');
+    await rules.first().locator('.filter-value').fill('Widget');
     await bar.getByRole('button', { name: 'Apply' }).click();
     await expect(status).toContainText('20 rows loaded (filtered)');
     await expect(grid.locator('tbody tr').filter({ hasText: 'Gadget' })).toHaveCount(0);
 
-    // Raw WHERE on top, combined with AND, plus a null filter on stock.
-    await bar.locator('.filter-where').fill('price > 40');
-    await bar.getByRole('button', { name: '+ Filter' }).click();
-    await bar.locator('.filter-row').nth(1).locator('select').first().selectOption('stock');
-    await bar.locator('.filter-row').nth(1).locator('select').nth(1).selectOption('is not null');
+    // A second rule on the same column forms a group; "any" ORs them.
+    await rules.first().locator('.filter-add').click();
+    await expect(bar.locator('.filter-group')).toHaveCount(1);
+    await rules.nth(1).locator('.filter-value').fill('Gadget 1');
+    await bar.locator('.filter-group').getByRole('button', { name: 'any', exact: true }).click();
+    await bar.getByRole('button', { name: 'Apply' }).click();
+    await expect(status).toContainText('28 rows loaded (filtered)');
+
+    // Between on a number shows two inputs and is ANDed with the group.
+    await bar.getByRole('button', { name: '+ Rule' }).click();
+    const range = rules.nth(2);
+    await range.locator('select').first().selectOption('price');
+    await range.locator('select').nth(1).selectOption('between');
+    await expect(range.locator('.filter-value')).toHaveCount(2);
+    await range.locator('.filter-value').first().fill('10');
+    await range.locator('.filter-value').nth(1).fill('20');
+    await bar.getByRole('button', { name: 'Apply' }).click();
+    await expect(status).toContainText('5 rows loaded (filtered)');
+
+    // The quick search narrows further across all columns.
+    await bar.locator('.filter-search').fill('Widget');
+    await bar.locator('.filter-search').press('Enter');
+    await expect(status).toContainText('2 rows loaded (filtered)');
+    await bar.locator('.filter-search').fill('');
+
+    // Raw WHERE on top, combined with AND.
+    await bar.locator('.filter-where').fill('id > 10');
     await bar.locator('.filter-where').press('Enter');
-    await expect(status).toContainText(/\d+ rows loaded \(filtered\)/);
+    await expect(status).toContainText('3 rows loaded (filtered)');
+    await ws.screenshot({ path: join(SHOTS, '09-filter-rules.png') });
     const shown = await grid.locator('tbody tr .cell-text').allTextContents();
-    expect(shown.every((t) => t.startsWith('Widget'))).toBe(true);
-    expect(shown.length).toBeLessThan(20);
+    expect(shown.length).toBe(3);
 
     // Count all matching rows on demand.
     await status.getByRole('button', { name: 'count all' }).click();
@@ -68,8 +92,8 @@ test('filters, raw WHERE, sorting and row counts on a table', async () => {
     await expect(priceHeader).toHaveClass(/sorted/);
     await priceHeader.click();
     await expect(priceHeader.locator('.grid-sort')).toHaveText('▼');
-    // Widget 60 is the most expensive match; the grid reloads asynchronously, so retry until it lands.
-    await expect(grid.locator('tbody tr').first().locator('td').nth(3)).toHaveText('90');
+    // Gadget 13 is the most expensive match; the grid reloads asynchronously, so retry until it lands.
+    await expect(grid.locator('tbody tr').first().locator('td').nth(3)).toHaveText('19.5');
     await priceHeader.click();
     await expect(priceHeader).not.toHaveClass(/sorted/);
     await ws.screenshot({ path: join(SHOTS, '10-filters-sorting.png') });
@@ -80,9 +104,9 @@ test('filters, raw WHERE, sorting and row counts on a table', async () => {
     await expect(status).not.toContainText('(filtered)');
 
     // A filter that cannot be parsed is refused before anything runs.
-    await bar.getByRole('button', { name: '+ Filter' }).click();
-    await bar.locator('.filter-row').last().locator('select').first().selectOption('stock');
-    await bar.locator('.filter-row').last().locator('.filter-value').fill('lots');
+    await expect(rules).toHaveCount(1);
+    await rules.first().locator('select').first().selectOption('stock');
+    await rules.first().locator('.filter-value').fill('lots');
     await bar.getByRole('button', { name: 'Apply' }).click();
     await expect(bar.locator('.error')).toContainText('Expected an integer');
   } finally {

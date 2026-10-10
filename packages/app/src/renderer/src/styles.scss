@@ -758,12 +758,17 @@ table.plain {
 // Filters and sorting ----------------------------------------------------
 .filter-bar {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
+  flex-direction: column;
   gap: 6px;
   padding: 6px 8px;
   border-bottom: 1px solid var(--border);
   background: var(--bg-2);
+  .filter-rules {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
   .filter-row {
     display: inline-flex;
     gap: 4px;
@@ -779,17 +784,92 @@ table.plain {
       padding: 2px 6px;
     }
     .filter-value {
+      width: 160px;
+    }
+    input[type='date'].filter-value {
       width: 140px;
     }
+    .filter-and {
+      color: var(--fg-2);
+      font-size: 12px;
+    }
+    .filter-add,
     .filter-remove {
       background: transparent;
       border: none;
       padding: 0 6px;
       color: var(--fg-2);
-      &:hover {
-        color: var(--danger);
+    }
+    .filter-add:hover {
+      color: var(--accent);
+    }
+    .filter-remove:hover {
+      color: var(--danger);
+    }
+  }
+  .filter-members {
+    position: relative;
+    summary {
+      list-style: none;
+      cursor: pointer;
+      padding: 2px 6px;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      &::-webkit-details-marker {
+        display: none;
       }
     }
+    .filter-members-list {
+      position: absolute;
+      z-index: 20;
+      top: calc(100% + 4px);
+      left: 0;
+      min-width: 180px;
+      max-height: 260px;
+      overflow: auto;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: 0 6px 18px rgb(0 0 0 / 18%);
+      padding: 4px;
+      label {
+        display: flex;
+        gap: 6px;
+        align-items: center;
+        padding: 2px 6px;
+        white-space: nowrap;
+      }
+    }
+  }
+  .filter-group {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    padding: 4px 6px 6px;
+    border: 1px dashed var(--border);
+    border-radius: var(--radius);
+    .filter-group-head {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--fg-2);
+      .segmented button {
+        padding: 0 8px;
+        font-size: 12px;
+      }
+    }
+  }
+  .filter-footer {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+  }
+  .filter-search {
+    flex: 0 1 220px;
   }
   .filter-where {
     flex: 1 1 220px;

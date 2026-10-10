@@ -1,101 +1,16 @@
 import { useEffect, useRef } from 'react';
-import type { ColumnMeta, Filter, FilterOperator, Value } from '@rasql/driver-protocol';
-import { V } from '@rasql/driver-protocol';
-import { parseEditText, valueToEditText } from '../lib/edit-values';
-
-/** A filter as the user typed it; converted to a typed `Filter` when applied. */
-export interface FilterDraft {
-  id: number;
-  column: string;
-  op: FilterOperator;
-  text: string;
-}
-
-export interface FilterState {
-  drafts: FilterDraft[];
-  whereSql: string;
-}
-
-const OPERATORS: { op: FilterOperator; label: string; needsValue: boolean }[] = [
-  { op: '=', label: '=', needsValue: true },
-  { op: '!=', label: '≠', needsValue: true },
-  { op: '<', label: '<', needsValue: true },
-  { op: '<=', label: '≤', needsValue: true },
-  { op: '>', label: '>', needsValue: true },
-  { op: '>=', label: '≥', needsValue: true },
-  { op: 'like', label: 'LIKE', needsValue: true },
-  { op: 'not like', label: 'NOT LIKE', needsValue: true },
-  { op: 'in', label: 'IN (a, b, …)', needsValue: true },
-  { op: 'not in', label: 'NOT IN', needsValue: true },
-  { op: 'is null', label: 'IS NULL', needsValue: false },
-  { op: 'is not null', label: 'IS NOT NULL', needsValue: false },
-];
-
-export const emptyFilters = (): FilterState => ({ drafts: [], whereSql: '' });
-
-let draftSeq = 1;
-export const newDraftId = (): number => draftSeq++;
-
-/** Pre-filled drafts, used when a tab opens with filters already applied (following a foreign key). */
-export function draftsFromFilters(filters: Filter[]): FilterState {
-  return {
-    whereSql: '',
-    drafts: filters.map((f) => ({
-      id: newDraftId(),
-      column: f.column,
-      op: f.op,
-      text: Array.isArray(f.value)
-        ? f.value.map(valueToEditText).join(', ')
-        : f.value
-          ? valueToEditText(f.value)
-          : '',
-    })),
-  };
-}
-
-/** Turn drafts into typed filters. Returns the first problem instead of a partial list. */
-export function compileFilters(
-  state: FilterState,
-  columns: ColumnMeta[],
-): { where: Filter[]; whereSql: string } | { error: string } {
-  const where: Filter[] = [];
-  for (const d of state.drafts) {
-    const meta = columns.find((c) => c.name === d.column);
-    if (!meta) continue;
-    const needsValue = OPERATORS.find((o) => o.op === d.op)?.needsValue ?? true;
-    if (!needsValue) {
-      where.push({ column: meta.originalName ?? meta.name, op: d.op });
-      continue;
-    }
-    const parse = (text: string): { value: Value } | { error: string } => {
-      // LIKE patterns are always text, whatever the column type.
-      if (d.op === 'like' || d.op === 'not like') return { value: V.text(text) };
-      return parseEditText(text, meta);
-    };
-    if (d.op === 'in' || d.op === 'not in') {
-      const parts = d.text
-        .split(',')
-        .map((x) => x.trim())
-        .filter(Boolean);
-      if (!parts.length) return { error: `${d.column}: list at least one value` };
-      const values: Value[] = [];
-      for (const part of parts) {
-        const r = parse(part);
-        if ('error' in r) return { error: `${d.column}: ${r.error}` };
-        values.push(r.value);
-      }
-      where.push({ column: meta.originalName ?? meta.name, op: d.op, value: values });
-      continue;
-    }
-    const r = parse(d.text);
-    if ('error' in r) return { error: `${d.column}: ${r.error}` };
-    where.push({ column: meta.originalName ?? meta.name, op: d.op, value: r.value });
-  }
-  return { where, whereSql: state.whereSql.trim() };
-}
-
-export const activeFilterCount = (s: FilterState): number =>
-  s.drafts.length + (s.whereSql.trim() ? 1 : 0);
+import type { ColumnMeta, FilterOperator } from '@rasql/driver-protocol';
+import {
+  columnKind,
+  defaultOperator,
+  groupDrafts,
+  inputShape,
+  newDraft,
+  operatorLabel,
+  operatorsFor,
+  type FilterDraft,
+  type FilterState,
+} from '../lib/filters';
 
 interface Props {
   columns: ColumnMeta[];
@@ -106,7 +21,14 @@ interface Props {
   /** Incremented by the owner to focus the bar, e.g. on Cmd+F. */
   focusToken: number;
   error: string | null;
+  /** What the driver can build; limits the operator menus. */
+  operators?: readonly FilterOperator[];
+  /** ENUM and SET members per column name, for dropdowns. */
+  members?: Record<string, string[]>;
 }
+
+/** The rule shown before the user adds any: it lives outside the state until it is edited. */
+const GHOST_ID = 0;
 
 export function FilterBar({
   columns,
@@ -116,102 +38,288 @@ export function FilterBar({
   onClear,
   focusToken,
   error,
+  operators,
+  members = {},
 }: Props): React.JSX.Element {
-  const firstInput = useRef<HTMLInputElement | HTMLSelectElement>(null);
+  const bar = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (focusToken > 0) firstInput.current?.focus();
+    if (focusToken === 0) return;
+    const el = bar.current?.querySelector<HTMLElement>('.filter-value, .filter-search');
+    el?.focus();
   }, [focusToken]);
 
-  const update = (id: number, patch: Partial<FilterDraft>): void =>
-    onChange({ ...state, drafts: state.drafts.map((d) => (d.id === id ? { ...d, ...patch } : d)) });
+  const first = columns[0];
+  const ghost: FilterDraft | null =
+    state.drafts.length === 0 && first
+      ? {
+          id: GHOST_ID,
+          column: first.name,
+          op: defaultOperator(first, operators),
+          text: '',
+          text2: '',
+          values: [],
+        }
+      : null;
+  const drafts = ghost ? [ghost] : state.drafts;
 
-  const add = (): void => {
-    const first = columns[0];
-    if (!first) return;
-    onChange({
-      ...state,
-      drafts: [...state.drafts, { id: newDraftId(), column: first.name, op: '=', text: '' }],
+  const setDrafts = (next: FilterDraft[]): void => onChange({ ...state, drafts: next });
+
+  const update = (id: number, patch: Partial<FilterDraft>): void =>
+    setDrafts(drafts.map((d) => (d.id === id ? { ...d, ...patch } : d)));
+
+  const changeColumn = (d: FilterDraft, column: string): void => {
+    const meta = columns.find((c) => c.name === column);
+    if (!meta) return;
+    const allowed = operatorsFor(meta, operators);
+    const before = columns.find((c) => c.name === d.column);
+    // An operator the user never touched follows the column; a chosen one stays when it can.
+    const untouched = !before || d.op === defaultOperator(before, operators);
+    update(d.id, {
+      column,
+      op: !untouched && allowed.includes(d.op) ? d.op : defaultOperator(meta, operators),
+      values: [],
     });
   };
 
-  const remove = (id: number): void =>
-    onChange({ ...state, drafts: state.drafts.filter((d) => d.id !== id) });
+  /** Add a rule for the same column right after this one: that is how groups are made. */
+  const addAfter = (d: FilterDraft): void => {
+    const meta = columns.find((c) => c.name === d.column);
+    if (!meta) return;
+    const i = drafts.findIndex((x) => x.id === d.id);
+    const next = [...drafts];
+    next.splice(i + 1, 0, { ...newDraft(meta, operators), op: d.op });
+    setDrafts(next);
+  };
+
+  const addRule = (): void => {
+    // Prefer a column without a rule yet; a second rule on a column is added with its own +.
+    const used = new Set(drafts.map((d) => d.column));
+    const meta = columns.find((c) => !used.has(c.name)) ?? first;
+    if (!meta) return;
+    setDrafts([...drafts, newDraft(meta, operators)]);
+  };
+
+  const remove = (id: number): void => setDrafts(drafts.filter((d) => d.id !== id));
 
   const onKey = (e: React.KeyboardEvent): void => {
-    if (e.key === 'Enter') {
+    if (e.key === 'Enter' && (e.target as HTMLElement).tagName !== 'BUTTON') {
       e.preventDefault();
       onApply();
     }
   };
 
   return (
-    <div className="filter-bar" onKeyDown={onKey}>
-      {state.drafts.map((d, i) => {
-        const needsValue = OPERATORS.find((o) => o.op === d.op)?.needsValue ?? true;
-        return (
-          <span className="filter-row" key={d.id}>
-            <select
-              ref={i === 0 ? (firstInput as React.RefObject<HTMLSelectElement>) : undefined}
-              value={d.column}
-              onChange={(e) => update(d.id, { column: e.target.value })}
-            >
-              {columns.map((c) => (
-                <option key={c.name} value={c.name}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-            <select
-              value={d.op}
-              onChange={(e) => update(d.id, { op: e.target.value as FilterOperator })}
-            >
-              {OPERATORS.map((o) => (
-                <option key={o.op} value={o.op}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
-            {needsValue && (
-              <input
-                className="filter-value"
-                value={d.text}
-                placeholder={
-                  d.op === 'like' || d.op === 'not like'
-                    ? '%pattern%'
-                    : d.op === 'in' || d.op === 'not in'
-                      ? 'a, b, c'
-                      : 'value'
-                }
-                onChange={(e) => update(d.id, { text: e.target.value })}
-              />
-            )}
-            <button className="filter-remove" title="Remove filter" onClick={() => remove(d.id)}>
-              ×
-            </button>
-          </span>
-        );
-      })}
-      <input
-        ref={
-          state.drafts.length === 0 ? (firstInput as React.RefObject<HTMLInputElement>) : undefined
-        }
-        className="filter-where"
-        value={state.whereSql}
-        placeholder="WHERE … (raw SQL, combined with AND)"
-        onChange={(e) => onChange({ ...state, whereSql: e.target.value })}
-        spellCheck={false}
-      />
-      <button onClick={add} disabled={columns.length === 0} title="Add a column filter">
-        + Filter
+    <div className="filter-bar" ref={bar} onKeyDown={onKey}>
+      <div className="filter-rules">
+        {groupDrafts(drafts).map((g) => {
+          const rows = g.drafts.map((d) => (
+            <Rule
+              key={d.id}
+              draft={d}
+              columns={columns}
+              operators={operators}
+              members={members[d.column]}
+              onColumn={(c) => changeColumn(d, c)}
+              onChange={(patch) => update(d.id, patch)}
+              onAdd={() => addAfter(d)}
+              onRemove={() => remove(d.id)}
+              removable={!(ghost && d.id === GHOST_ID)}
+            />
+          ));
+          if (g.drafts.length < 2) return rows;
+          const match = state.groupMatch[g.column] ?? 'all';
+          const setMatch = (m: 'all' | 'any'): void =>
+            onChange({ ...state, groupMatch: { ...state.groupMatch, [g.column]: m } });
+          return (
+            <div className="filter-group" key={`group-${g.column}`}>
+              <div className="filter-group-head">
+                <span>{g.column}: match</span>
+                <span className="segmented">
+                  <button
+                    className={match === 'all' ? 'active' : ''}
+                    onClick={() => setMatch('all')}
+                    title="Every rule on this column must hold (AND)"
+                  >
+                    all
+                  </button>
+                  <button
+                    className={match === 'any' ? 'active' : ''}
+                    onClick={() => setMatch('any')}
+                    title="At least one rule on this column must hold (OR)"
+                  >
+                    any
+                  </button>
+                </span>
+                <span>of these rules</span>
+              </div>
+              {rows}
+            </div>
+          );
+        })}
+      </div>
+      <div className="filter-footer">
+        <button onClick={addRule} disabled={columns.length === 0} title="Add a rule">
+          + Rule
+        </button>
+        <input
+          className="filter-search"
+          type="search"
+          value={state.search}
+          placeholder="Search all columns"
+          title="Matches rows where any column contains this text; numbers also match numeric columns exactly"
+          onChange={(e) => onChange({ ...state, search: e.target.value })}
+        />
+        <input
+          className="filter-where"
+          value={state.whereSql}
+          placeholder="WHERE … (raw SQL, combined with AND)"
+          onChange={(e) => onChange({ ...state, whereSql: e.target.value })}
+          spellCheck={false}
+        />
+        <button className="primary" onClick={onApply}>
+          Apply
+        </button>
+        <button onClick={onClear}>Clear</button>
+        {error && <span className="error">{error}</span>}
+      </div>
+    </div>
+  );
+}
+
+interface RuleProps {
+  draft: FilterDraft;
+  columns: ColumnMeta[];
+  operators: readonly FilterOperator[] | undefined;
+  members: string[] | undefined;
+  onColumn: (column: string) => void;
+  onChange: (patch: Partial<FilterDraft>) => void;
+  onAdd: () => void;
+  onRemove: () => void;
+  removable: boolean;
+}
+
+function Rule({
+  draft: d,
+  columns,
+  operators,
+  members,
+  onColumn,
+  onChange,
+  onAdd,
+  onRemove,
+  removable,
+}: RuleProps): React.JSX.Element {
+  const meta = columns.find((c) => c.name === d.column);
+  const kind = meta ? columnKind(meta) : 'text';
+  const ops = meta ? operatorsFor(meta, operators) : [d.op];
+  const shape = inputShape(d.op, kind, Boolean(members?.length));
+  const dateInput = kind === 'date' && d.op !== 'starts with';
+  const placeholder =
+    d.op === 'like' || d.op === 'not like'
+      ? '%pattern%'
+      : d.op === 'regexp' || d.op === 'not regexp'
+        ? 'regular expression'
+        : kind === 'temporal'
+          ? 'YYYY-MM-DD HH:MM:SS'
+          : 'value';
+  const field = (value: string, set: (v: string) => void, ph = placeholder): React.JSX.Element => (
+    <input
+      className="filter-value"
+      type={dateInput ? 'date' : 'text'}
+      inputMode={kind === 'number' ? 'decimal' : undefined}
+      value={value}
+      placeholder={ph}
+      spellCheck={false}
+      onChange={(e) => set(e.target.value)}
+    />
+  );
+
+  return (
+    <div className="filter-row">
+      <select value={d.column} onChange={(e) => onColumn(e.target.value)} title="Column">
+        {columns.map((c) => (
+          <option key={c.name} value={c.name}>
+            {c.name}
+          </option>
+        ))}
+      </select>
+      <select
+        value={d.op}
+        onChange={(e) => onChange({ op: e.target.value as FilterOperator })}
+        title="Operator"
+      >
+        {ops.map((op) => (
+          <option key={op} value={op}>
+            {operatorLabel(op)}
+          </option>
+        ))}
+      </select>
+      {shape === 'one' && field(d.text, (text) => onChange({ text }))}
+      {shape === 'list' && field(d.text, (text) => onChange({ text }), 'a, b, c')}
+      {shape === 'two' && (
+        <>
+          {field(d.text, (text) => onChange({ text }), 'from')}
+          <span className="filter-and">and</span>
+          {field(d.text2, (text2) => onChange({ text2 }), 'to')}
+        </>
+      )}
+      {shape === 'bool' && (
+        <select
+          className="filter-value"
+          value={d.text}
+          onChange={(e) => onChange({ text: e.target.value })}
+        >
+          <option value="">choose…</option>
+          <option value="1">true</option>
+          <option value="0">false</option>
+        </select>
+      )}
+      {shape === 'member' && (
+        <select
+          className="filter-value"
+          value={d.text}
+          onChange={(e) => onChange({ text: e.target.value })}
+        >
+          <option value="">choose…</option>
+          {members?.map((m) => (
+            <option key={m} value={m}>
+              {m === '' ? '(empty)' : m}
+            </option>
+          ))}
+        </select>
+      )}
+      {shape === 'members' && (
+        <details className="filter-members">
+          <summary className="filter-value" tabIndex={0}>
+            {d.values.length ? d.values.join(', ') : 'choose…'}
+          </summary>
+          <div className="filter-members-list">
+            {members?.map((m) => (
+              <label key={m}>
+                <input
+                  type="checkbox"
+                  checked={d.values.includes(m)}
+                  onChange={(e) =>
+                    onChange({
+                      values: e.target.checked ? [...d.values, m] : d.values.filter((x) => x !== m),
+                    })
+                  }
+                />
+                {m === '' ? '(empty)' : m}
+              </label>
+            ))}
+          </div>
+        </details>
+      )}
+      <button className="filter-add" title="Add a rule for this column" onClick={onAdd}>
+        +
       </button>
-      <button className="primary" onClick={onApply}>
-        Apply
-      </button>
-      <button onClick={onClear} disabled={activeFilterCount(state) === 0}>
-        Clear
-      </button>
-      {error && <span className="error">{error}</span>}
+      {removable && (
+        <button className="filter-remove" title="Remove rule" onClick={onRemove}>
+          ×
+        </button>
+      )}
     </div>
   );
 }

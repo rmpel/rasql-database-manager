@@ -1,5 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { Filter, SelectOptions, TableDefinition, Value } from '@rasql/driver-protocol';
+import type {
+  DialectInfo,
+  Filter,
+  FilterOperator,
+  SelectOptions,
+  TableDefinition,
+  Value,
+} from '@rasql/driver-protocol';
 import { rasql } from '../api';
 import { useQuery } from '../hooks/useQuery';
 import { keyColumnsFor, useStagedChanges, type RowRef } from '../hooks/useStagedChanges';
@@ -7,14 +14,15 @@ import { DataGrid, type SortState } from './DataGrid';
 import { ExportButton } from './ExportButton';
 import { CellInspector } from './CellInspector';
 import { useResizable } from '../hooks/useResizable';
+import { FilterBar } from './FilterBar';
 import {
   activeFilterCount,
   compileFilters,
-  emptyFilters,
-  FilterBar,
-  type FilterState,
   draftsFromFilters,
-} from './FilterBar';
+  emptyFilters,
+  parseMembers,
+  type FilterState,
+} from '../lib/filters';
 import {
   filtersForSource,
   filtersForTarget,
@@ -83,6 +91,26 @@ export function TableTab({
   const referencesMenu = useRef<HTMLSpanElement>(null);
 
   const fkByColumn = useMemo(() => foreignKeyByColumn(definition), [definition]);
+  const [operators, setOperators] = useState<FilterOperator[] | undefined>(undefined);
+  useEffect(() => {
+    let alive = true;
+    rasql.session
+      .dialect(sessionKey, 'describe', [])
+      .then((info) => alive && setOperators((info as DialectInfo).filterOperators))
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, [sessionKey]);
+  // ENUM and SET members, from the column types in the table definition.
+  const members = useMemo(() => {
+    const out: Record<string, string[]> = {};
+    for (const c of definition?.columns ?? []) {
+      const list = parseMembers(c.nativeType);
+      if (list) out[c.name] = list;
+    }
+    return out;
+  }, [definition]);
   const inspectedColumn = selectedCell ? state.columns[selectedCell.col] : undefined;
   const inspectedValue = useMemo(() => {
     if (!selectedCell) return undefined;
@@ -245,7 +273,7 @@ export function TableTab({
   }, [active, view, staged.count, state.status, loadPage]);
 
   const applyFilters = useCallback(async () => {
-    const compiled = compileFilters(filterDraft, state.columns);
+    const compiled = compileFilters(filterDraft, state.columns, members);
     if ('error' in compiled) {
       setFilterError(compiled.error);
       return;
@@ -256,7 +284,7 @@ export function TableTab({
     if (compiled.where.length) next.where = compiled.where;
     if (compiled.whereSql) next.whereSql = compiled.whereSql;
     setApplied(next);
-  }, [filterDraft, state.columns, confirmDiscard]);
+  }, [filterDraft, state.columns, members, confirmDiscard]);
 
   const clearFilters = useCallback(async () => {
     if (!(await confirmDiscard())) return;
@@ -392,7 +420,7 @@ export function TableTab({
   }, [active, editable, refresh, commit, selectedRow, deleteSelected]);
 
   const pending = staged.count;
-  const filterCount = activeFilterCount(filterDraft);
+  const filterCount = activeFilterCount(filterDraft, state.columns, members);
   const total = count.state.status === 'done' ? count.state.rows[0]?.[0] : undefined;
   const totalText = total && total.t !== 'null' && 'v' in total ? String(total.v) : null;
 
@@ -535,6 +563,8 @@ export function TableTab({
           onClear={() => void clearFilters()}
           focusToken={focusToken}
           error={filterError}
+          {...(operators ? { operators } : {})}
+          members={members}
         />
       )}
       {view === 'content' ? (

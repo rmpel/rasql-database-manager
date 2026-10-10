@@ -64,7 +64,7 @@ The minimum that lets a developer replace their current tool.
 - Connection manager: favorites, groups, color, environment label, read-only flag, import from Sequel Pro/Ace `.spf` and TablePlus.
 - Window per connection, tabs inside for tables, queries and panels.
 - Schema browser: databases, tables, views, routines, triggers, events.
-- Data grid: virtualized, paging, column filters, sorting, inline editing with pending-change review, explicit NULL handling, follow foreign keys, per-type renderers for text, numbers, dates, bytes and JSON.
+- Data grid: virtualized, paging, column filters (typed rules, same-column any/all groups, quick search, raw WHERE), sorting, inline editing with pending-change review, explicit NULL handling, follow foreign keys, per-type renderers for text, numbers, dates, bytes and JSON.
 - Query editor: tabs, syntax highlighting, autocomplete from the live schema, query history, saved queries, EXPLAIN, cancel a running query.
 - Structure view, read-only: columns, indexes, foreign keys, table options, CREATE statement.
 - Export: SQL, CSV, JSON, for a table or a result set.

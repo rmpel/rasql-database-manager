@@ -1,4 +1,9 @@
-import type { DialectInfo, TypeDescriptor, Value } from '@rasql/driver-protocol';
+import {
+  BASIC_FILTER_OPERATORS,
+  type DialectInfo,
+  type TypeDescriptor,
+  type Value,
+} from '@rasql/driver-protocol';
 import { BaseDialect, formatLiteral } from '@rasql/driver-sdk';
 
 const KEYWORDS = (
@@ -34,6 +39,7 @@ export class SqliteDialect extends BaseDialect {
       keywords: KEYWORDS,
       types: TYPES,
       pingSql: 'SELECT 1',
+      filterOperators: [...BASIC_FILTER_OPERATORS],
     };
   }
 

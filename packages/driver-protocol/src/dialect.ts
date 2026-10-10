@@ -35,17 +35,68 @@ export type FilterOperator =
   | 'not in'
   | 'is null'
   | 'is not null'
-  | 'between';
+  | 'between'
+  | 'not between'
+  /** Substring match through LIKE with the user's text escaped; case follows the collation. */
+  | 'contains'
+  | 'not contains'
+  | 'starts with'
+  | 'ends with'
+  /** Equal to the empty string. NULL is not empty; use 'is null' for that. */
+  | 'is empty'
+  | 'is not empty'
+  /** Optional: drivers list them in DialectInfo.filterOperators when the engine supports them. */
+  | 'regexp'
+  | 'not regexp'
+  /** A SET column has this member. */
+  | 'has member';
+
+/** The operators every driver built on the SDK supports. */
+export const BASIC_FILTER_OPERATORS: readonly FilterOperator[] = [
+  '=',
+  '!=',
+  '<',
+  '<=',
+  '>',
+  '>=',
+  'like',
+  'not like',
+  'in',
+  'not in',
+  'is null',
+  'is not null',
+  'between',
+  'not between',
+  'contains',
+  'not contains',
+  'starts with',
+  'ends with',
+  'is empty',
+  'is not empty',
+];
 
 export interface Filter {
   column: string;
   op: FilterOperator;
+  /** One value; a list for 'in' and 'not in'; two values for 'between' and 'not between'. */
   value?: Value | Value[];
 }
 
+/** Filters joined with AND ('all') or OR ('any'), wrapped in parentheses. */
+export interface FilterGroup {
+  match: 'all' | 'any';
+  filters: Filter[];
+}
+
+export type FilterNode = Filter | FilterGroup;
+
+export const isFilterGroup = (f: FilterNode): f is FilterGroup =>
+  Array.isArray((f as FilterGroup).filters);
+
 export interface SelectOptions {
   columns?: string[];
-  where?: Filter[];
+  /** Joined with AND. A group joins its own filters with AND or OR. */
+  where?: FilterNode[];
   /** Raw WHERE fragment typed by the user. Appended with AND. */
   whereSql?: string;
   orderBy?: { column: string; direction: 'asc' | 'desc' }[];
@@ -100,6 +151,8 @@ export interface DialectInfo {
   types: TypeDescriptor[];
   /** The statement that selects the current time, for connection tests. */
   pingSql: string;
+  /** Filter operators the driver can build. Absent means the classic set before 'contains'. */
+  filterOperators?: FilterOperator[];
 }
 
 /**

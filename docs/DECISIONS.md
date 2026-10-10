@@ -260,3 +260,25 @@ model keeps all of it, and the same parser will drive serialization-aware search
 Phase 2. The NUL fix was found by the end-to-end test: protected properties contain NUL bytes.
 **Owner:** Remon set the requirement that type markers must not be lost; Claude built it with one
 agent for the parser; dated 2026-10-10.
+
+## D-34 Filter rules follow Sequel Pro; same-column rules group with one match-all or match-any switch
+
+**Decided:** The filter bar opens with one rule on the first column and grows with a + per rule.
+Each rule's operators follow its column type: text gets contains, does not contain, starts with
+and ends with first; numbers and dates get comparisons and between with two inputs, where one
+empty bound makes an open range; enum columns get a dropdown of their members, and a checklist
+for "is one of"; set columns get "has member"; booleans get true or false. A rule with an empty
+value is unfinished and ignored; matching the empty string is its own operator ("is empty").
+Rules on different columns are ANDed. Rules on the same column form a group with one switch,
+all (AND) or any (OR), for the whole group; mixed logic on one column is left to the raw WHERE
+field, which stays. A quick search ORs a contains over every text-like column, plus equality on
+numeric columns when the term is a number. Contains and its siblings use LIKE with the user's
+text escaped (`ESCAPE '!'`), so `%` and `_` match literally and case follows the collation.
+Drivers list the operators they can build in `DialectInfo.filterOperators`; MySQL adds REGEXP and
+set membership (`FIND_IN_SET`), and `SelectOptions.where` accepts groups. Both are additive to the
+protocol.
+**Why:** Remon described Sequel Pro's model and asked to keep the raw query input. Within one
+column, AND is right for exclusions and OR for alternatives; a single switch per column covers
+both without a nested rule editor. Forcing case-insensitivity with LOWER() would defeat indexes.
+**Owner:** Remon described the behaviour and approved the design; Claude built it; dated
+2026-10-10.

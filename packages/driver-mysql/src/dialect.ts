@@ -1,4 +1,11 @@
-import type { DialectInfo, TypeDescriptor, Value } from '@rasql/driver-protocol';
+import {
+  BASIC_FILTER_OPERATORS,
+  DriverError,
+  type DialectInfo,
+  type Filter,
+  type TypeDescriptor,
+  type Value,
+} from '@rasql/driver-protocol';
 import { BaseDialect, formatLiteral } from '@rasql/driver-sdk';
 
 const KEYWORDS = (
@@ -79,7 +86,19 @@ export class MysqlDialect extends BaseDialect {
       keywords: KEYWORDS,
       types: TYPES,
       pingSql: 'SELECT 1',
+      filterOperators: [...BASIC_FILTER_OPERATORS, 'regexp', 'not regexp', 'has member'],
     };
+  }
+
+  protected override filterToSql(f: Filter): string {
+    if (f.op !== 'regexp' && f.op !== 'not regexp' && f.op !== 'has member')
+      return super.filterToSql(f);
+    if (f.value === undefined || Array.isArray(f.value))
+      throw new DriverError('UNSUPPORTED', `Filter ${f.op} on ${f.column} needs one value`);
+    const col = this.quoteIdentifier(f.column);
+    const value = this.quoteLiteral(f.value);
+    if (f.op === 'has member') return `FIND_IN_SET(${value}, ${col}) > 0`;
+    return `${col} ${f.op === 'regexp' ? 'REGEXP' : 'NOT REGEXP'} ${value}`;
   }
 
   quoteIdentifier(name: string): string {

@@ -34,6 +34,24 @@ describe('MysqlDialect', () => {
     );
   });
 
+  it('filters with REGEXP and set membership', () => {
+    expect(d.describe().filterOperators).toContain('has member');
+    expect(
+      d.buildCount(
+        { name: 'p' },
+        {
+          where: [
+            { column: 'slug', op: 'regexp', value: V.text('^post-\\d+$') },
+            { column: 'flags', op: 'has member', value: V.text('sticky') },
+            { column: 'title', op: 'contains', value: V.text('100%') },
+          ],
+        },
+      ),
+    ).toBe(
+      "SELECT COUNT(*) FROM `p` WHERE `slug` REGEXP '^post-\\\\d+$' AND FIND_IN_SET('sticky', `flags`) > 0 AND `title` LIKE '%100!%%' ESCAPE '!'",
+    );
+  });
+
   it('classifies statements', () => {
     expect(d.classify('SHOW TABLES')).toBe('read');
     expect(d.classify('REPLACE INTO t VALUES (1)')).toBe('write');
