@@ -57,7 +57,7 @@ test('inspects bytes, JSON and base64 text, and replaces a blob from a file', as
       .poll(() =>
         inspector
           .locator('.inspector-image')
-          .evaluate((img) => (img as HTMLImageElement).naturalWidth),
+          .evaluate((img) => (img as unknown as { naturalWidth: number }).naturalWidth),
       )
       .toBe(1);
     await expect(inspector.locator('.inspector-hex')).toContainText('89 50 4e 47');
@@ -76,7 +76,7 @@ test('inspects bytes, JSON and base64 text, and replaces a blob from a file', as
       .poll(() =>
         inspector
           .locator('.inspector-image')
-          .evaluate((img) => (img as HTMLImageElement).naturalWidth),
+          .evaluate((img) => (img as unknown as { naturalWidth: number }).naturalWidth),
       )
       .toBe(1);
 

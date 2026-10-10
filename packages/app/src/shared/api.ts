@@ -280,6 +280,10 @@ export interface RasqlApi {
   app: {
     platform: string;
     version: string;
+    /** Short git commit the build came from, with +dirty for uncommitted changes. */
+    commit: string;
+    /** ISO timestamp of the build. */
+    builtAt: string;
     /** Show the connection manager window, creating it if needed. */
     showLauncher(): Promise<void>;
     /** Close the calling window; for a connection window that ends the session. */

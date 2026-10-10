@@ -42,7 +42,10 @@ export function installMenu(onShowLauncher: () => void, onIntegrateDesktop: () =
           label: 'RaSQL on GitHub',
           click: () => void shell.openExternal('https://github.com/rmpel/rasql-database-manager'),
         },
-        { label: `Version ${app.getVersion()}`, enabled: false },
+        {
+          label: `Version ${app.getVersion()} (${__APP_COMMIT__}, built ${__APP_BUILT_AT__.slice(0, 16).replace('T', ' ')} UTC)`,
+          enabled: false,
+        },
       ],
     },
   ];

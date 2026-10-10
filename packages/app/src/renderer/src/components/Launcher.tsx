@@ -173,7 +173,10 @@ export function Launcher({ drivers, pending, onPending, onOpened }: Props): Reac
           {saved.length === 0 && <li className="hint">No saved connections yet.</li>}
         </ul>
         <LocalWpSection onPending={onPending} busy={busy} />
-        <footer>v{rasql.app.version}</footer>
+        <footer title={`Built ${rasql.app.builtAt} from commit ${rasql.app.commit}`}>
+          v{rasql.app.version} · {rasql.app.commit} ·{' '}
+          {rasql.app.builtAt.slice(0, 16).replace('T', ' ')} UTC
+        </footer>
       </aside>
       <main className="launcher-main">
         {showForm ? (

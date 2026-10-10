@@ -79,6 +79,8 @@ const api: RasqlApi = {
   app: {
     platform: process.platform,
     version: __APP_VERSION__,
+    commit: __APP_COMMIT__,
+    builtAt: __APP_BUILT_AT__,
     showLauncher: () => ipcRenderer.invoke(IPC.appShowLauncher),
     closeWindow: () => ipcRenderer.invoke(IPC.appCloseWindow),
     onPendingConnection: (listener) =>
