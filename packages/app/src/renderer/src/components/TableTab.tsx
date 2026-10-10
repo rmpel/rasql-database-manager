@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import type { SelectOptions, TableDefinition } from '@rasql/driver-protocol';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { Filter, SelectOptions, TableDefinition, Value } from '@rasql/driver-protocol';
 import { rasql } from '../api';
 import { useQuery } from '../hooks/useQuery';
 import { keyColumnsFor, useStagedChanges, type RowRef } from '../hooks/useStagedChanges';
@@ -11,7 +11,15 @@ import {
   emptyFilters,
   FilterBar,
   type FilterState,
+  draftsFromFilters,
 } from './FilterBar';
+import {
+  filtersForSource,
+  filtersForTarget,
+  foreignKeyByColumn,
+  referencingTables,
+  type IncomingReference,
+} from '../lib/related';
 
 const PAGE = 500;
 
@@ -24,6 +32,10 @@ interface Props {
   onViewChange: (view: 'content' | 'structure') => void;
   /** Only the visible tab reacts to keyboard shortcuts and focus refreshes. */
   active: boolean;
+  /** Filters applied on first load, with the filter bar open and pre-filled. */
+  initialFilters?: Filter[];
+  /** Open another table with filters, for following foreign keys either way. */
+  onOpenRelated?: (target: { schema: string; name: string }, filters: Filter[]) => void;
 }
 
 export function TableTab({
@@ -34,6 +46,8 @@ export function TableTab({
   view,
   onViewChange,
   active,
+  initialFilters,
+  onOpenRelated,
 }: Props): React.JSX.Element {
   const { state, run } = useQuery(sessionKey);
   const count = useQuery(sessionKey);
@@ -42,13 +56,79 @@ export function TableTab({
   const [selectedRow, setSelectedRow] = useState<RowRef | null>(null);
   const [message, setMessage] = useState<{ kind: 'info' | 'error'; text: string } | null>(null);
   const [committing, setCommitting] = useState(false);
-  const [showFilters, setShowFilters] = useState(false);
-  const [filterDraft, setFilterDraft] = useState<FilterState>(emptyFilters);
-  const [applied, setApplied] = useState<Pick<SelectOptions, 'where' | 'whereSql'>>({});
+  const [showFilters, setShowFilters] = useState(Boolean(initialFilters?.length));
+  const [filterDraft, setFilterDraft] = useState<FilterState>(() =>
+    initialFilters?.length ? draftsFromFilters(initialFilters) : emptyFilters(),
+  );
+  const [applied, setApplied] = useState<Pick<SelectOptions, 'where' | 'whereSql'>>(() =>
+    initialFilters?.length ? { where: initialFilters } : {},
+  );
   const [filterError, setFilterError] = useState<string | null>(null);
   const [focusToken, setFocusToken] = useState(0);
   const [sort, setSort] = useState<SortState | null>(null);
   const [exportSql, setExportSql] = useState<string | null>(null);
+  const [references, setReferences] = useState<IncomingReference[] | null>(null);
+  const [referencesOpen, setReferencesOpen] = useState(false);
+  const referencesMenu = useRef<HTMLSpanElement>(null);
+
+  const fkByColumn = useMemo(() => foreignKeyByColumn(definition), [definition]);
+  const columnName = useCallback(
+    (i: number) => state.columns[i]?.originalName ?? state.columns[i]?.name ?? '',
+    [state.columns],
+  );
+  const foreignKeyColumns = useMemo(() => {
+    const set = new Set<number>();
+    state.columns.forEach((_, i) => {
+      if (fkByColumn.has(columnName(i))) set.add(i);
+    });
+    return set;
+  }, [state.columns, fkByColumn, columnName]);
+
+  const rowValueOf = useCallback(
+    (ref: RowRef) =>
+      (column: string): Value | undefined => {
+        if (ref.kind !== 'row') return undefined;
+        const i = state.columns.findIndex((c) => (c.originalName ?? c.name) === column);
+        return i === -1 ? undefined : state.rows[ref.index]?.[i];
+      },
+    [state.columns, state.rows],
+  );
+
+  const followForeignKey = useCallback(
+    (ref: RowRef, col: number) => {
+      const fk = fkByColumn.get(columnName(col));
+      if (!fk || !onOpenRelated) return;
+      onOpenRelated(
+        { schema: fk.referencedSchema ?? schema, name: fk.referencedTable },
+        filtersForTarget(fk, rowValueOf(ref)),
+      );
+    },
+    [fkByColumn, columnName, onOpenRelated, schema, rowValueOf],
+  );
+
+  const openReferences = useCallback(async () => {
+    setReferencesOpen((o) => !o);
+    if (references === null)
+      setReferences(await referencingTables(sessionKey, { schema, name: table }));
+  }, [references, sessionKey, schema, table]);
+
+  const followReference = useCallback(
+    (r: IncomingReference) => {
+      setReferencesOpen(false);
+      if (!selectedRow || !onOpenRelated) return;
+      onOpenRelated(r.table, filtersForSource(r.foreignKey, rowValueOf(selectedRow)));
+    },
+    [selectedRow, onOpenRelated, rowValueOf],
+  );
+
+  useEffect(() => {
+    if (!referencesOpen) return;
+    const close = (e: MouseEvent): void => {
+      if (!referencesMenu.current?.contains(e.target as Node)) setReferencesOpen(false);
+    };
+    window.addEventListener('mousedown', close);
+    return () => window.removeEventListener('mousedown', close);
+  }, [referencesOpen]);
   const offset = useRef(0);
   const exhausted = state.status === 'done' && (state.rowCount ?? 0) < PAGE;
   const editable = kind === 'table';
@@ -329,6 +409,34 @@ export function TableTab({
           suggestedName={table}
           table={{ schema, name: table }}
         />
+        {editable && (
+          <span className="dropdown" ref={referencesMenu}>
+            <button
+              onClick={() => void openReferences()}
+              disabled={!selectedRow || selectedRow.kind !== 'row'}
+              title="Rows in other tables that point at the selected row"
+            >
+              References ▾
+            </button>
+            {referencesOpen && (
+              <div className="dropdown-menu">
+                {references === null && <span className="hint">Looking up foreign keys…</span>}
+                {references?.length === 0 && (
+                  <span className="hint">No table references this one.</span>
+                )}
+                {references?.map((r) => (
+                  <button
+                    key={`${r.table.schema}.${r.table.name}.${r.foreignKey.name}`}
+                    onClick={() => followReference(r)}
+                  >
+                    {r.table.name}{' '}
+                    <span className="dropdown-detail">({r.foreignKey.columns.join(', ')})</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </span>
+        )}
         {editable && view === 'content' && (
           <>
             <span className="toolbar-sep" />
@@ -406,6 +514,8 @@ export function TableTab({
           onReachEnd={() => void loadPage(true)}
           sort={sort}
           onSort={(column) => void toggleSort(column)}
+          foreignKeyColumns={foreignKeyColumns}
+          onFollowForeignKey={followForeignKey}
           {...(editable ? { staged, selectedRow, onSelectRow: setSelectedRow } : {})}
         />
       ) : (

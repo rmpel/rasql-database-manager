@@ -820,3 +820,55 @@ table.plain {
   color: var(--accent);
   text-decoration: underline;
 }
+
+// Foreign keys and dropdown menus ---------------------------------------
+.fk-link {
+  margin-left: 6px;
+  padding: 0 5px;
+  height: 18px;
+  line-height: 1;
+  font-size: 11px;
+  background: transparent;
+  border-color: transparent;
+  color: var(--accent);
+  opacity: 0.55;
+  td:hover & {
+    opacity: 1;
+  }
+}
+.dropdown {
+  position: relative;
+  display: inline-flex;
+  .dropdown-menu {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    z-index: 5;
+    margin-top: 4px;
+    min-width: 200px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
+    display: flex;
+    flex-direction: column;
+    button {
+      text-align: left;
+      background: transparent;
+      border: none;
+      border-radius: 0;
+      padding: 6px 12px;
+      white-space: nowrap;
+      &:hover {
+        background: var(--bg-3);
+      }
+    }
+    .dropdown-detail {
+      color: var(--fg-2);
+      font-size: 11px;
+    }
+    .hint {
+      padding: 6px 12px;
+    }
+  }
+}

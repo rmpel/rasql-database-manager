@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import type { ColumnMeta, Filter, FilterOperator, Value } from '@rasql/driver-protocol';
 import { V } from '@rasql/driver-protocol';
-import { parseEditText } from '../lib/edit-values';
+import { parseEditText, valueToEditText } from '../lib/edit-values';
 
 /** A filter as the user typed it; converted to a typed `Filter` when applied. */
 export interface FilterDraft {
@@ -32,6 +32,26 @@ const OPERATORS: { op: FilterOperator; label: string; needsValue: boolean }[] = 
 ];
 
 export const emptyFilters = (): FilterState => ({ drafts: [], whereSql: '' });
+
+let draftSeq = 1;
+export const newDraftId = (): number => draftSeq++;
+
+/** Pre-filled drafts, used when a tab opens with filters already applied (following a foreign key). */
+export function draftsFromFilters(filters: Filter[]): FilterState {
+  return {
+    whereSql: '',
+    drafts: filters.map((f) => ({
+      id: newDraftId(),
+      column: f.column,
+      op: f.op,
+      text: Array.isArray(f.value)
+        ? f.value.map(valueToEditText).join(', ')
+        : f.value
+          ? valueToEditText(f.value)
+          : '',
+    })),
+  };
+}
 
 /** Turn drafts into typed filters. Returns the first problem instead of a partial list. */
 export function compileFilters(
@@ -97,7 +117,6 @@ export function FilterBar({
   focusToken,
   error,
 }: Props): React.JSX.Element {
-  const [nextId, setNextId] = useState(1);
   const firstInput = useRef<HTMLInputElement | HTMLSelectElement>(null);
 
   useEffect(() => {
@@ -112,9 +131,8 @@ export function FilterBar({
     if (!first) return;
     onChange({
       ...state,
-      drafts: [...state.drafts, { id: nextId, column: first.name, op: '=', text: '' }],
+      drafts: [...state.drafts, { id: newDraftId(), column: first.name, op: '=', text: '' }],
     });
-    setNextId(nextId + 1);
   };
 
   const remove = (id: number): void =>

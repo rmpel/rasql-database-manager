@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { DbObject } from '@rasql/driver-protocol';
+import type { DbObject, Filter } from '@rasql/driver-protocol';
 import type { ConnectionDefinition, OpenSessionResult } from '@shared/api';
 import { ENVIRONMENT_COLORS } from '@shared/api';
 import { rasql } from '../api';
@@ -16,6 +16,8 @@ type Tab =
       objectKind: 'table' | 'view';
       view: 'content' | 'structure';
       generation: number;
+      /** Applied on first load, e.g. when following a foreign key. */
+      initialFilters?: Filter[];
     }
   | { id: string; kind: 'query'; title: string };
 
@@ -64,6 +66,26 @@ export function Workspace({ definition, session, onDisconnect }: Props): React.J
           generation: 0,
         },
       ];
+    });
+    setActive(id);
+  };
+
+  /** Open (or re-open) a table with filters applied, as when following a foreign key. */
+  const openRelated = (target: { schema: string; name: string }, filters: Filter[]): void => {
+    const id = tableTabId(target);
+    setTabs((t) => {
+      const existing = t.find((x) => x.id === id && x.kind === 'table');
+      const next = {
+        id,
+        kind: 'table' as const,
+        schema: target.schema,
+        table: target.name,
+        objectKind: 'table' as const,
+        view: 'content' as const,
+        generation: existing && existing.kind === 'table' ? existing.generation + 1 : 0,
+        initialFilters: filters,
+      };
+      return existing ? t.map((x) => (x.id === id ? next : x)) : [...t, next];
     });
     setActive(id);
   };
@@ -179,6 +201,8 @@ export function Workspace({ definition, session, onDisconnect }: Props): React.J
                     )
                   }
                   active={t.id === active}
+                  onOpenRelated={openRelated}
+                  {...(t.initialFilters ? { initialFilters: t.initialFilters } : {})}
                 />
               ) : (
                 <QueryTab

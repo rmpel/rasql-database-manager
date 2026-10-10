@@ -24,6 +24,9 @@ interface Props {
   staged?: StagedApi;
   selectedRow?: RowRef | null;
   onSelectRow?: (ref: RowRef | null) => void;
+  /** Column indexes whose values point at another table; cells get a link to follow. */
+  foreignKeyColumns?: ReadonlySet<number>;
+  onFollowForeignKey?: (ref: RowRef, col: number) => void;
 }
 
 interface Editing {
@@ -59,6 +62,8 @@ export function DataGrid({
   staged,
   selectedRow,
   onSelectRow,
+  foreignKeyColumns,
+  onFollowForeignKey,
 }: Props): React.JSX.Element {
   const viewport = useRef<HTMLDivElement>(null);
   const [scrollTop, setScrollTop] = useState(0);
@@ -283,7 +288,24 @@ export function DataGrid({
                       ) : unset ? (
                         <span className="cell cell-default">default</span>
                       ) : (
-                        <ValueCell value={value} />
+                        <>
+                          <ValueCell value={value} />
+                          {foreignKeyColumns?.has(col) &&
+                            value.t !== 'null' &&
+                            ref.kind === 'row' && (
+                              <button
+                                type="button"
+                                className="fk-link"
+                                title="Open the referenced row"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onFollowForeignKey?.(ref, col);
+                                }}
+                              >
+                                →
+                              </button>
+                            )}
+                        </>
                       )}
                     </td>
                   );
