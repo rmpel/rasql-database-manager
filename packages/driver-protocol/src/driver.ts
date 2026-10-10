@@ -1,6 +1,13 @@
 import type { DriverManifest } from './manifest.js';
 import type { ExplainResult, QueryEvent, QueryOptions, ResolvedEndpoint } from './connection.js';
-import type { DbObject, SchemaInfo, ServerInfo, TableDefinition } from './schema.js';
+import type {
+  DbObject,
+  DbObjectKind,
+  ObjectDefinition,
+  SchemaInfo,
+  ServerInfo,
+  TableDefinition,
+} from './schema.js';
 import type { Dialect } from './dialect.js';
 
 export interface Driver {
@@ -13,6 +20,8 @@ export interface Session {
   listSchemas(): Promise<SchemaInfo[]>;
   listObjects(schema: string): Promise<DbObject[]>;
   describeTable(schema: string, table: string): Promise<TableDefinition>;
+  /** Optional: the definition of a routine, trigger, event or view. */
+  describeObject?(schema: string, kind: DbObjectKind, name: string): Promise<ObjectDefinition>;
   /** Streams. Never buffers a result set. Honors opts.signal where the engine can cancel. */
   query(sql: string, opts?: QueryOptions): AsyncIterable<QueryEvent>;
   explain(sql: string): Promise<ExplainResult>;
@@ -30,6 +39,7 @@ export const SESSION_RPC_METHODS = [
   'listSchemas',
   'listObjects',
   'describeTable',
+  'describeObject',
   'explain',
   'setReadOnly',
   'begin',

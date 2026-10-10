@@ -149,7 +149,7 @@ textarea {
     padding: 0;
     overflow: auto;
     flex: 1 1 auto;
-    min-height: 60px;
+    min-height: 120px;
   }
   > ul > li {
     display: flex;
@@ -188,9 +188,66 @@ textarea {
     white-space: nowrap;
   }
 }
+.launcher-search {
+  -webkit-app-region: no-drag;
+}
+.launcher-list li.connection-section {
+  display: block;
+  > ul {
+    list-style: none;
+    margin: 0 0 6px;
+    padding: 0;
+    > li {
+      display: flex;
+      align-items: stretch;
+      gap: 2px;
+    }
+  }
+}
+.connection-section-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  background: transparent;
+  border-color: transparent;
+  padding: 4px 4px 2px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--fg-2);
+  text-align: left;
+  .caret {
+    width: 10px;
+  }
+  .count {
+    margin-left: auto;
+    font-weight: normal;
+  }
+}
+.connection-star {
+  background: transparent;
+  border-color: transparent;
+  padding: 0 4px;
+  color: var(--fg-2);
+  visibility: hidden;
+  li:hover > &,
+  &.on {
+    visibility: visible;
+  }
+  &.on {
+    color: #e0a800;
+  }
+}
+.connection-form .color-input {
+  padding: 0 2px;
+  height: 28px;
+  min-width: 40px;
+}
 .connection-actions {
   display: none;
-  li:hover & {
+  li:hover > & {
     display: flex;
   }
   button {
@@ -642,7 +699,8 @@ table.plain {
   gap: 6px;
   flex: 0 1 auto;
   min-height: 0;
-  max-height: 60%;
+  // Saved connections come first; Local sites scroll within the rest.
+  max-height: 45%;
   -webkit-app-region: no-drag;
   h2 {
     font-size: 11px;
@@ -1211,5 +1269,72 @@ table.plain {
   }
   button:last-child {
     border-radius: 0 var(--radius) var(--radius) 0;
+  }
+}
+
+// Object definitions (routines, triggers, events) ---------------------------
+.object-list .object-section {
+  padding: 8px 8px 2px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--fg-2);
+}
+.object-tab {
+  .object-tab-kind {
+    font-size: 11px;
+    padding: 1px 6px;
+    border-radius: 8px;
+    background: var(--bg-3);
+    color: var(--fg-2);
+  }
+  .object-tab-body {
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    overflow: auto;
+    min-height: 0;
+    flex: 1;
+  }
+  .object-explain {
+    margin: 0;
+    color: var(--fg-2);
+    max-width: 760px;
+  }
+  .object-warning {
+    padding: 6px 10px;
+    border-radius: var(--radius);
+    background: color-mix(in srgb, #e0a800 16%, transparent);
+    max-width: 760px;
+  }
+  .object-props {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 3px 16px;
+    margin: 0;
+    > div {
+      display: contents;
+    }
+    dt {
+      color: var(--fg-2);
+    }
+    dd {
+      margin: 0;
+      font-family: var(--mono);
+      font-size: 12px;
+    }
+  }
+  .object-ddl {
+    flex: 1;
+    min-height: 160px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    display: flex;
+    > * {
+      flex: 1;
+    }
   }
 }

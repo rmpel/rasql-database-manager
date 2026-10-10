@@ -45,6 +45,8 @@ interface Props {
   onSave: (value: ConnectionFormValue) => void;
   busy?: boolean;
   error?: string | null;
+  /** Existing group names, offered while typing. */
+  groups?: string[];
 }
 
 function emptyDefinition(driver: DriverManifest): ConnectionDefinition {
@@ -76,6 +78,7 @@ export function ConnectionForm({
   onSave,
   busy,
   error,
+  groups = [],
 }: Props): React.JSX.Element {
   const [def, setDef] = useState<ConnectionDefinition>(() => {
     const first = drivers[0] as DriverManifest;
@@ -224,10 +227,65 @@ export function ConnectionForm({
             ))}
           </select>
         </label>
-        <span
-          className="env-swatch"
-          style={{ background: def.color ?? ENVIRONMENT_COLORS[def.environment] }}
-        />
+        <label className="narrow" title="Defaults to the environment's color">
+          Color
+          <span className="with-button">
+            <input
+              type="color"
+              className="color-input"
+              value={def.color ?? ENVIRONMENT_COLORS[def.environment]}
+              onChange={(e) => update('color', e.target.value)}
+            />
+            {def.color && (
+              <button
+                type="button"
+                title="Use the environment's color"
+                onClick={() =>
+                  setDef((d) => {
+                    const next = { ...d };
+                    delete next.color;
+                    return next;
+                  })
+                }
+              >
+                ↺
+              </button>
+            )}
+          </span>
+        </label>
+      </div>
+
+      <div className="form-row">
+        <label className="grow">
+          Group
+          <input
+            list="rasql-connection-groups"
+            value={def.group ?? ''}
+            placeholder="none"
+            onChange={(e) => {
+              const group = e.target.value;
+              setDef((d) => {
+                const next = { ...d };
+                if (group.trim()) next.group = group;
+                else delete next.group;
+                return next;
+              });
+            }}
+          />
+          <datalist id="rasql-connection-groups">
+            {groups.map((g) => (
+              <option key={g} value={g} />
+            ))}
+          </datalist>
+        </label>
+        <label className="checkbox">
+          <input
+            type="checkbox"
+            checked={Boolean(def.favorite)}
+            onChange={(e) => update('favorite', e.target.checked)}
+          />
+          Favorite
+        </label>
       </div>
 
       <div className="form-row">

@@ -97,6 +97,20 @@ export interface TableDefinition {
   rowEstimate?: number;
 }
 
+/**
+ * A routine, trigger, event or view as the engine defines it: its CREATE statement plus facts
+ * worth showing next to it (for a trigger: table, timing, event; for a routine: parameters,
+ * returns, security). Labels are for display and differ per engine.
+ */
+export interface ObjectDefinition {
+  schema: string;
+  name: string;
+  kind: DbObjectKind;
+  /** The CREATE statement, or the body when the engine has no complete statement to give. */
+  ddl: string;
+  properties: { label: string; value: string }[];
+}
+
 /** Metadata for one column of a result set. */
 export interface ColumnMeta {
   name: string;

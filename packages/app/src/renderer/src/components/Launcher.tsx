@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { DriverManifest } from '@rasql/driver-protocol';
 import type {
   ConnectionDefinition,
@@ -33,6 +33,20 @@ export function Launcher({ drivers, pending, onPending, onOpened }: Props): Reac
 
   const reload = (): void => void rasql.connections.list().then(setSaved);
   useEffect(reload, []);
+  const [search, setSearch] = useState('');
+  const [collapsed, setCollapsed] = useState<string[]>(readCollapsed);
+  const toggleSection = (key: string): void =>
+    setCollapsed((c) => {
+      const next = c.includes(key) ? c.filter((x) => x !== key) : [...c, key];
+      writeCollapsed(next);
+      return next;
+    });
+  const sections = useMemo(() => sectionsFor(saved, search), [saved, search]);
+  const groupNames = useMemo(
+    () =>
+      [...new Set(saved.map((c) => c.group?.trim()).filter((g): g is string => Boolean(g)))].sort(),
+    [saved],
+  );
 
   const keychainRef = (id: string): ConnectionDefinition['credentials'] => ({
     password: { provider: 'keychain', account: `rasql:${id}:password` },
@@ -124,7 +138,19 @@ export function Launcher({ drivers, pending, onPending, onOpened }: Props): Reac
   };
 
   const remove = async (def: ConnectionDefinition): Promise<void> => {
+    const ok = await rasql.dialog.confirm({
+      title: `Delete the connection “${def.name}”?`,
+      message: 'Its saved password is removed from the keychain too. Databases are not touched.',
+      confirmLabel: 'Delete',
+      danger: true,
+    });
+    if (!ok) return;
     await rasql.connections.remove(def.id);
+    reload();
+  };
+
+  const toggleFavorite = async (def: ConnectionDefinition): Promise<void> => {
+    await rasql.connections.save({ ...def, favorite: !def.favorite });
     reload();
   };
 
@@ -142,35 +168,80 @@ export function Launcher({ drivers, pending, onPending, onOpened }: Props): Reac
         >
           New connection
         </button>
+        {saved.length > 4 && (
+          <input
+            className="launcher-search"
+            type="search"
+            placeholder="Search connections"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        )}
         <ul>
-          {saved.map((c) => (
-            <li key={c.id}>
-              <button className="connection-item" onClick={() => void openSaved(c)} disabled={busy}>
-                <span
-                  className="env-dot"
-                  style={{ background: c.color ?? ENVIRONMENT_COLORS[c.environment] }}
-                />
-                <span className="connection-name">{c.name}</span>
-                <span className="connection-meta">{describe(c)}</span>
-              </button>
-              <span className="connection-actions">
-                <button
-                  title="Edit"
-                  onClick={() => {
-                    setEditing(c);
-                    setError(null);
-                    setShowForm(true);
-                  }}
-                >
-                  ✎
-                </button>
-                <button title="Delete" onClick={() => void remove(c)}>
-                  ✕
-                </button>
-              </span>
-            </li>
-          ))}
+          {sections.map((section) => {
+            // While searching every section is open; otherwise the user decides.
+            const open = Boolean(search.trim()) || !collapsed.includes(section.key);
+            return (
+              <li key={section.key} className="connection-section">
+                {section.title && (
+                  <button
+                    className="connection-section-head"
+                    onClick={() => toggleSection(section.key)}
+                    aria-expanded={open}
+                  >
+                    <span className="caret">{open ? '▾' : '▸'}</span>
+                    {section.title}
+                    <span className="count">{section.items.length}</span>
+                  </button>
+                )}
+                {open && (
+                  <ul>
+                    {section.items.map((c) => (
+                      <li key={c.id}>
+                        <button
+                          className="connection-item"
+                          onClick={() => void openSaved(c)}
+                          disabled={busy}
+                        >
+                          <span
+                            className="env-dot"
+                            style={{ background: c.color ?? ENVIRONMENT_COLORS[c.environment] }}
+                          />
+                          <span className="connection-name">{c.name}</span>
+                          <span className="connection-meta">{describe(c)}</span>
+                        </button>
+                        <button
+                          className={`connection-star${c.favorite ? ' on' : ''}`}
+                          title={c.favorite ? 'Remove from favorites' : 'Add to favorites'}
+                          aria-pressed={Boolean(c.favorite)}
+                          onClick={() => void toggleFavorite(c)}
+                        >
+                          {c.favorite ? '★' : '☆'}
+                        </button>
+                        <span className="connection-actions">
+                          <button
+                            title="Edit"
+                            onClick={() => {
+                              setEditing(c);
+                              setError(null);
+                              setShowForm(true);
+                            }}
+                          >
+                            ✎
+                          </button>
+                          <button title="Delete" onClick={() => void remove(c)}>
+                            ✕
+                          </button>
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </li>
+            );
+          })}
           {saved.length === 0 && <li className="hint">No saved connections yet.</li>}
+          {saved.length > 0 && sections.length === 0 && <li className="hint">No matches.</li>}
         </ul>
         <LocalWpSection onPending={onPending} busy={busy} />
         <footer title={`Built ${rasql.app.builtAt} from commit ${rasql.app.commit}`}>
@@ -188,6 +259,7 @@ export function Launcher({ drivers, pending, onPending, onOpened }: Props): Reac
             onSave={(v) => void save(v)}
             busy={busy}
             error={error}
+            groups={groupNames}
           />
         ) : (
           <div className="launcher-empty">
@@ -246,4 +318,67 @@ function emptyBits(): Partial<ConnectionDefinition> {
     createdAt: '',
     updatedAt: '',
   };
+}
+
+interface Section {
+  key: string;
+  /** Null when there is nothing to tell apart: one plain list without a heading. */
+  title: string | null;
+  items: ConnectionDefinition[];
+}
+
+const byName = (a: ConnectionDefinition, b: ConnectionDefinition): number =>
+  a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+
+/** Favorites first, then one section per group by name, then the connections without a group. */
+export function sectionsFor(all: ConnectionDefinition[], search: string): Section[] {
+  const term = search.trim().toLowerCase();
+  const list = term
+    ? all.filter((c) =>
+        [c.name, c.group, c.host, c.database, c.socketPath, c.filePath, c.user]
+          .filter(Boolean)
+          .some((v) => String(v).toLowerCase().includes(term)),
+      )
+    : all;
+  const favorites = list.filter((c) => c.favorite).sort(byName);
+  const rest = list.filter((c) => !c.favorite);
+  const groups = new Map<string, ConnectionDefinition[]>();
+  const ungrouped: ConnectionDefinition[] = [];
+  for (const c of rest) {
+    const g = c.group?.trim();
+    if (!g) ungrouped.push(c);
+    else groups.set(g, [...(groups.get(g) ?? []), c]);
+  }
+  const sections: Section[] = [];
+  if (favorites.length) sections.push({ key: 'favorites', title: 'Favorites', items: favorites });
+  for (const g of [...groups.keys()].sort((a, b) => a.localeCompare(b))) {
+    sections.push({ key: `group:${g}`, title: g, items: (groups.get(g) ?? []).sort(byName) });
+  }
+  if (ungrouped.length) {
+    sections.push({
+      key: 'ungrouped',
+      title: sections.length ? 'Other connections' : null,
+      items: ungrouped.sort(byName),
+    });
+  }
+  return sections;
+}
+
+const COLLAPSED_KEY = 'rasql.launcher.collapsed';
+
+function readCollapsed(): string[] {
+  try {
+    const parsed: unknown = JSON.parse(localStorage.getItem(COLLAPSED_KEY) ?? '[]');
+    return Array.isArray(parsed) ? parsed.filter((x): x is string => typeof x === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeCollapsed(keys: string[]): void {
+  try {
+    localStorage.setItem(COLLAPSED_KEY, JSON.stringify(keys));
+  } catch {
+    /* storage unavailable; collapsing still works for this session */
+  }
 }

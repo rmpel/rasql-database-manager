@@ -4,9 +4,11 @@
  */
 import type {
   DbObject,
+  DbObjectKind,
   DialectRpcMethod,
   DriverManifest,
   ExplainResult,
+  ObjectDefinition,
   QueryEvent,
   QueryOptions,
   SchemaInfo,
@@ -37,7 +39,11 @@ export type SecretKind = 'password' | 'ssh-password' | 'ssh-passphrase';
 export interface ConnectionDefinition {
   id: string;
   name: string;
+  /** Shown as a section in the connection manager. */
   group?: string;
+  /** Listed under Favorites at the top of the connection manager. */
+  favorite?: boolean;
+  /** Overrides the environment's color. */
   color?: string;
   environment: Environment;
   readOnly: boolean;
@@ -152,6 +158,24 @@ export interface HistoryEntry {
   error?: string;
 }
 
+/** A named query. `connection` is the saved connection id, or null for every connection. */
+export interface SavedQuery {
+  id: string;
+  name: string;
+  sql: string;
+  connection: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SavedQueryInput {
+  /** Present to update an existing query. */
+  id?: string;
+  name: string;
+  sql: string;
+  connection: string | null;
+}
+
 export type ExportFormat = 'csv' | 'json' | 'sql';
 
 export interface ExportRequest {
@@ -225,6 +249,13 @@ export interface RasqlApi {
     listSchemas(sessionKey: string): Promise<SchemaInfo[]>;
     listObjects(sessionKey: string, schema: string): Promise<DbObject[]>;
     describeTable(sessionKey: string, schema: string, table: string): Promise<TableDefinition>;
+    /** A routine, trigger, event or view; rejects with UNSUPPORTED when the driver cannot. */
+    describeObject(
+      sessionKey: string,
+      schema: string,
+      kind: DbObjectKind,
+      name: string,
+    ): Promise<ObjectDefinition>;
     dialect(sessionKey: string, method: DialectRpcMethod, args: unknown[]): Promise<unknown>;
     startQuery(sessionKey: string, sql: string, opts?: SerializableQueryOptions): Promise<string>;
     cancelQuery(queryId: string): Promise<void>;
@@ -234,6 +265,12 @@ export interface RasqlApi {
     explain(sessionKey: string, sql: string): Promise<ExplainResult>;
     /** Run statements inside one transaction; rolls back and rejects on the first failure. */
     transaction(sessionKey: string, statements: string[]): Promise<ExecResult[]>;
+  };
+  savedQueries: {
+    /** This connection's queries plus the shared ones, sorted by name. */
+    list(connection: string): Promise<SavedQuery[]>;
+    save(query: SavedQueryInput): Promise<SavedQuery>;
+    remove(id: string): Promise<void>;
   };
   history: {
     list(connection: string, limit?: number): Promise<HistoryEntry[]>;
@@ -315,6 +352,10 @@ export const IPC = {
   sessionListSchemas: 'session:listSchemas',
   sessionListObjects: 'session:listObjects',
   sessionDescribeTable: 'session:describeTable',
+  sessionDescribeObject: 'session:describeObject',
+  savedQueriesList: 'savedQueries:list',
+  savedQueriesSave: 'savedQueries:save',
+  savedQueriesRemove: 'savedQueries:remove',
   sessionDialect: 'session:dialect',
   sessionQueryStart: 'session:query:start',
   sessionQueryCancel: 'session:query:cancel',

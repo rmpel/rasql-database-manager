@@ -175,3 +175,68 @@
     }
   }
 }
+
+.panel-tabs button {
+  padding: 2px 10px;
+}
+.saved-panel {
+  li {
+    position: relative;
+    border-radius: var(--radius);
+    &.current {
+      background: color-mix(in srgb, var(--accent) 14%, transparent);
+    }
+    &:hover .saved-actions {
+      display: flex;
+    }
+  }
+  .saved-name {
+    font-weight: 600;
+    display: flex;
+    gap: 6px;
+    align-items: baseline;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .saved-shared {
+    font-weight: normal;
+    font-size: 10px;
+    color: var(--fg-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0 5px;
+  }
+  .saved-actions {
+    display: none;
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    button {
+      padding: 0 5px;
+      background: var(--bg-2);
+      border-color: transparent;
+    }
+  }
+  .saved-rename input {
+    width: calc(100% - 12px);
+    margin: 4px 6px;
+  }
+}
+.save-query-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-2);
+  input[type='text'] {
+    width: 260px;
+  }
+  label {
+    display: inline-flex;
+    gap: 4px;
+    align-items: center;
+    font-size: 12px;
+  }
+}

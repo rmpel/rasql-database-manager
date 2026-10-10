@@ -67,7 +67,9 @@ export function serveDriver(
   const handleCall = async (m: Extract<HostMessage, { kind: 'call' }>): Promise<void> => {
     try {
       const session = requireSession(m.sessionId);
-      const fn = session[m.method] as (...args: unknown[]) => Promise<unknown>;
+      const fn = session[m.method] as ((...args: unknown[]) => Promise<unknown>) | undefined;
+      if (typeof fn !== 'function')
+        throw new DriverError('UNSUPPORTED', `This driver does not implement ${m.method}`);
       const value = await fn.apply(session, m.args);
       if (m.method === 'close') sessions.delete(m.sessionId);
       send({ kind: 'result', id: m.id, value: value ?? null });

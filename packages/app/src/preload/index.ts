@@ -34,6 +34,8 @@ const api: RasqlApi = {
     listObjects: (key, schema) => ipcRenderer.invoke(IPC.sessionListObjects, key, schema),
     describeTable: (key, schema, table) =>
       ipcRenderer.invoke(IPC.sessionDescribeTable, key, schema, table),
+    describeObject: (key, schema, kind, name) =>
+      ipcRenderer.invoke(IPC.sessionDescribeObject, key, schema, kind, name),
     dialect: (key, method, args) => ipcRenderer.invoke(IPC.sessionDialect, key, method, args),
     startQuery: (key, sql, opts) => ipcRenderer.invoke(IPC.sessionQueryStart, key, sql, opts),
     cancelQuery: (queryId) => ipcRenderer.invoke(IPC.sessionQueryCancel, queryId),
@@ -41,6 +43,11 @@ const api: RasqlApi = {
     exec: (key, sql) => ipcRenderer.invoke(IPC.sessionExec, key, sql),
     explain: (key, sql) => ipcRenderer.invoke(IPC.sessionExplain, key, sql),
     transaction: (key, statements) => ipcRenderer.invoke(IPC.sessionTransaction, key, statements),
+  },
+  savedQueries: {
+    list: (connection) => ipcRenderer.invoke(IPC.savedQueriesList, connection),
+    save: (query) => ipcRenderer.invoke(IPC.savedQueriesSave, query),
+    remove: (id) => ipcRenderer.invoke(IPC.savedQueriesRemove, id),
   },
   history: {
     list: (connection, limit) => ipcRenderer.invoke(IPC.historyList, connection, limit),

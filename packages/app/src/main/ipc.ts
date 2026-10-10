@@ -9,7 +9,7 @@ import {
   shell,
 } from 'electron';
 import type { RemoteSession } from '@rasql/driver-sdk';
-import type { DialectRpcMethod } from '@rasql/driver-protocol';
+import type { DbObjectKind, DialectRpcMethod } from '@rasql/driver-protocol';
 import type {
   ConfirmOptions,
   ConnectionDefinition,
@@ -29,10 +29,11 @@ import {
 } from './integrations/localwp';
 import type { LocalSite } from '@shared/api';
 import type { ConnectionStore } from './connections';
-import { passwordAccount, type CredentialProvider } from './credentials';
+import { passwordAccount, secretAccount, type CredentialProvider } from './credentials';
 import type { SessionManager } from './sessions';
 import type { HistoryStore } from './history';
-import type { HistoryEntry } from '@shared/api';
+import type { SavedQueryStore } from './saved-queries';
+import type { HistoryEntry, SavedQueryInput } from '@shared/api';
 import type { WindowManager } from './windows';
 
 /** Drain one statement's events into a result, or throw the engine's error. */
@@ -67,8 +68,13 @@ export function registerIpc(deps: {
   sessions: SessionManager;
   windows: WindowManager;
   history: HistoryStore;
+  savedQueries: SavedQueryStore;
 }): void {
-  const { store, credentials, sessions, windows, history } = deps;
+  const { store, credentials, sessions, windows, history, savedQueries } = deps;
+
+  ipcMain.handle(IPC.savedQueriesList, (_e, connection: string) => savedQueries.list(connection));
+  ipcMain.handle(IPC.savedQueriesSave, (_e, query: SavedQueryInput) => savedQueries.save(query));
+  ipcMain.handle(IPC.savedQueriesRemove, (_e, id: string) => savedQueries.remove(id));
 
   ipcMain.handle(IPC.historyList, (_e, connection: string, limit?: number) =>
     history.list(connection, limit),
@@ -82,7 +88,9 @@ export function registerIpc(deps: {
   ipcMain.handle(IPC.connectionsSave, (_e, def: ConnectionDefinition) => store.save(def));
   ipcMain.handle(IPC.connectionsRemove, async (_e, id: string) => {
     store.remove(id);
-    await credentials.delete(passwordAccount(id));
+    // Every secret the connection may have stored: database password and SSH secrets.
+    for (const kind of ['password', 'ssh-password', 'ssh-passphrase'] as const)
+      await credentials.delete(secretAccount(id, kind));
   });
   ipcMain.handle(
     IPC.connectionsHasPassword,
@@ -104,6 +112,11 @@ export function registerIpc(deps: {
   );
   ipcMain.handle(IPC.sessionDescribeTable, (_e, key: string, schema: string, table: string) =>
     sessions.get(key).describeTable(schema, table),
+  );
+  ipcMain.handle(
+    IPC.sessionDescribeObject,
+    (_e, key: string, schema: string, kind: DbObjectKind, name: string) =>
+      sessions.get(key).describeObject(schema, kind, name),
   );
   ipcMain.handle(
     IPC.sessionDialect,

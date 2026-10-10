@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ExplainResult } from '@rasql/driver-protocol';
+import type { SavedQuery } from '@shared/api';
 import { rasql } from '../api';
 import { useQuery } from '../hooks/useQuery';
 import { useSchemaCompletion } from '../hooks/useSchemaCompletion';
@@ -7,6 +8,7 @@ import { DataGrid } from './DataGrid';
 import { ExportButton } from './ExportButton';
 import { ExplainView } from './ExplainView';
 import { HistoryPanel } from './HistoryPanel';
+import { SavedQueriesPanel } from './SavedQueriesPanel';
 import { SqlEditor, type RunTarget, type SqlEditorHandle } from './SqlEditor';
 import './query-editor.scss';
 
@@ -16,6 +18,9 @@ interface Props {
   sessionKey: string;
   connectionKey: string;
   engine: string;
+  initialSql?: string;
+  /** The saved query's name for the tab, or null when the tab is not bound to one. */
+  onTitleChange?: (title: string | null) => void;
 }
 
 interface LastRun {
@@ -29,13 +34,19 @@ const stripIpc = (err: unknown): string =>
     ? err.message.replace(/^Error invoking remote method '[^']+': /, '')
     : String(err);
 
-export function QueryTab({ sessionKey, connectionKey, engine }: Props): React.JSX.Element {
+export function QueryTab({
+  sessionKey,
+  connectionKey,
+  engine,
+  initialSql,
+  onTitleChange,
+}: Props): React.JSX.Element {
   const editor = useRef<SqlEditorHandle>(null);
   const root = useRef<HTMLDivElement>(null);
   const { state, run, cancel } = useQuery(sessionKey);
   const { source: completion } = useSchemaCompletion(sessionKey);
   const [lastRun, setLastRun] = useState<LastRun | null>(null);
-  const [historyOpen, setHistoryOpen] = useState(false);
+  const [panel, setPanel] = useState<'saved' | 'history' | null>(null);
   const [historyVersion, setHistoryVersion] = useState(0);
   const [explain, setExplain] = useState<{
     sql: string;
@@ -44,6 +55,13 @@ export function QueryTab({ sessionKey, connectionKey, engine }: Props): React.JS
     loading: boolean;
   } | null>(null);
   const [editorHeight, setEditorHeight] = useState(180);
+  // The saved query this tab edits, if any. The ref mirrors it for the editor's change handler.
+  const [saved, setSavedState] = useState<SavedQuery | null>(null);
+  const savedRef = useRef<SavedQuery | null>(null);
+  const [dirty, setDirty] = useState(false);
+  const [saveForm, setSaveForm] = useState<{ name: string; shared: boolean } | null>(null);
+  const [savedVersion, setSavedVersion] = useState(0);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const execute = useCallback(
     (sqlOverride?: string) => {
@@ -57,6 +75,77 @@ export function QueryTab({ sessionKey, connectionKey, engine }: Props): React.JS
     [run],
   );
 
+  const bind = useCallback((q: SavedQuery | null) => {
+    savedRef.current = q;
+    setSavedState(q);
+  }, []);
+
+  const onDocChange = useCallback((doc: string) => {
+    const next = savedRef.current !== null && doc !== savedRef.current.sql;
+    setDirty((d) => (d === next ? d : next));
+  }, []);
+
+  useEffect(() => {
+    onTitleChange?.(saved ? `${saved.name}${dirty ? ' •' : ''}` : null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [saved, dirty]);
+
+  const save = useCallback(async () => {
+    const current = savedRef.current;
+    if (!current) {
+      setSaveForm({ name: '', shared: false });
+      return;
+    }
+    try {
+      const sql = editor.current?.getDoc() ?? current.sql;
+      bind(await rasql.savedQueries.save({ ...current, sql }));
+      setDirty(false);
+      setSavedVersion((v) => v + 1);
+    } catch (err) {
+      setSaveError(stripIpc(err));
+    }
+  }, [bind]);
+
+  const submitSaveForm = async (): Promise<void> => {
+    if (!saveForm) return;
+    const name = saveForm.name.trim();
+    if (!name) {
+      setSaveError('Give the query a name');
+      return;
+    }
+    try {
+      const stored = await rasql.savedQueries.save({
+        name,
+        sql: editor.current?.getDoc() ?? '',
+        connection: saveForm.shared ? null : connectionKey,
+      });
+      bind(stored);
+      setDirty(false);
+      setSaveForm(null);
+      setSaveError(null);
+      setSavedVersion((v) => v + 1);
+    } catch (err) {
+      setSaveError(stripIpc(err));
+    }
+  };
+
+  /** Open a saved query in this tab; asks first when the tab has unsaved changes to another. */
+  const loadSaved = async (q: SavedQuery, thenRun = false): Promise<void> => {
+    const current = savedRef.current;
+    if (current && current.id !== q.id && dirty) {
+      const ok = await rasql.dialog.confirm({
+        title: `Discard changes to “${current.name}”?`,
+        message: 'The editor has changes that are not saved.',
+        confirmLabel: 'Discard',
+        danger: true,
+      });
+      if (!ok) return;
+    }
+    bind(q);
+    editor.current?.setDoc(q.sql);
+    setDirty(false);
+    if (thenRun) execute(q.sql);
+  };
   // Record a finished run in the history once, then let the panel reload.
   useEffect(() => {
     if (!lastRun || lastRun.recorded) return;
@@ -102,7 +191,10 @@ export function QueryTab({ sessionKey, connectionKey, engine }: Props): React.JS
     }
   }, [sessionKey]);
 
-  const toggleHistory = useCallback(() => setHistoryOpen((o) => !o), []);
+  const toggleHistory = useCallback(
+    () => setPanel((p) => (p === 'history' ? null : 'history')),
+    [],
+  );
 
   const onEscape = useCallback(() => {
     if (state.status === 'running') cancel();
@@ -128,13 +220,16 @@ export function QueryTab({ sessionKey, connectionKey, engine }: Props): React.JS
       } else if (mod && e.shiftKey && e.key.toLowerCase() === 'h') {
         e.preventDefault();
         toggleHistory();
+      } else if (mod && !e.shiftKey && e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        void save();
       } else if (e.key === 'Escape' && state.status === 'running') {
         cancel();
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [execute, doExplain, toggleHistory, cancel, state.status]);
+  }, [execute, doExplain, toggleHistory, cancel, save, state.status]);
 
   const startResize = (e: React.MouseEvent): void => {
     e.preventDefault();
@@ -157,6 +252,16 @@ export function QueryTab({ sessionKey, connectionKey, engine }: Props): React.JS
         ? `statement ${t.source.index} of ${t.source.total}`
         : '';
   const lastSql = lastRun && state.status === 'done' ? lastRun.target.sql : null;
+  const panelTabs = (
+    <span className="segmented panel-tabs">
+      <button className={panel === 'saved' ? 'active' : ''} onClick={() => setPanel('saved')}>
+        Saved
+      </button>
+      <button className={panel === 'history' ? 'active' : ''} onClick={() => setPanel('history')}>
+        History
+      </button>
+    </span>
+  );
 
   return (
     <div className="tab-body query-tab" ref={root}>
@@ -166,8 +271,10 @@ export function QueryTab({ sessionKey, connectionKey, engine }: Props): React.JS
             <SqlEditor
               ref={editor}
               engine={engine}
-              initialDoc="SELECT 1"
+              initialDoc={initialSql ?? 'SELECT 1'}
               completion={completion}
+              onSave={() => void save()}
+              onChange={onDocChange}
               onRun={() => execute()}
               onExplain={() => void doExplain()}
               onToggleHistory={toggleHistory}
@@ -199,7 +306,31 @@ export function QueryTab({ sessionKey, connectionKey, engine }: Props): React.JS
               Explain
             </button>
             <button
-              className={historyOpen ? 'active' : ''}
+              onClick={() => void save()}
+              title={saved ? `Save changes to “${saved.name}” (⌘S)` : 'Save this query (⌘S)'}
+              disabled={Boolean(saved) && !dirty}
+            >
+              Save
+            </button>
+            {saved && (
+              <button
+                onClick={() =>
+                  setSaveForm({ name: `${saved.name} copy`, shared: saved.connection === null })
+                }
+                title="Save as a new query"
+              >
+                Save as…
+              </button>
+            )}
+            <button
+              className={panel === 'saved' ? 'active' : ''}
+              onClick={() => setPanel((p) => (p === 'saved' ? null : 'saved'))}
+              title="Saved queries"
+            >
+              Saved
+            </button>
+            <button
+              className={panel === 'history' ? 'active' : ''}
               onClick={toggleHistory}
               title="Query history (⌘⇧H)"
             >
@@ -232,6 +363,39 @@ export function QueryTab({ sessionKey, connectionKey, engine }: Props): React.JS
               ))}
             </span>
           </div>
+          {saveForm && (
+            <form
+              className="save-query-bar"
+              onSubmit={(e) => {
+                e.preventDefault();
+                void submitSaveForm();
+              }}
+            >
+              <input
+                type="text"
+                autoFocus
+                placeholder="Name for this query"
+                value={saveForm.name}
+                onChange={(e) => setSaveForm({ ...saveForm, name: e.target.value })}
+                onKeyDown={(e) => e.key === 'Escape' && setSaveForm(null)}
+              />
+              <label title="Offer this query on every connection, not only this one">
+                <input
+                  type="checkbox"
+                  checked={saveForm.shared}
+                  onChange={(e) => setSaveForm({ ...saveForm, shared: e.target.checked })}
+                />
+                All connections
+              </label>
+              <button type="submit" className="primary">
+                Save
+              </button>
+              <button type="button" onClick={() => setSaveForm(null)}>
+                Cancel
+              </button>
+              {saveError && <span className="error">{saveError}</span>}
+            </form>
+          )}
           {explain && (
             <ExplainView
               sql={explain.sql}
@@ -245,8 +409,27 @@ export function QueryTab({ sessionKey, connectionKey, engine }: Props): React.JS
             {state.columns.length > 0 && <DataGrid columns={state.columns} rows={state.rows} />}
           </div>
         </div>
-        {historyOpen && (
+        {panel === 'saved' && (
+          <SavedQueriesPanel
+            connectionKey={connectionKey}
+            version={savedVersion}
+            currentId={saved?.id ?? null}
+            onLoad={(q) => void loadSaved(q)}
+            onRun={(q) => void loadSaved(q, true)}
+            onChanged={(q, removedId) => {
+              if (q && savedRef.current?.id === q.id) bind({ ...q, sql: savedRef.current.sql });
+              if (removedId && savedRef.current?.id === removedId) {
+                bind(null);
+                setDirty(false);
+              }
+            }}
+            onClose={() => setPanel(null)}
+            tabs={panelTabs}
+          />
+        )}
+        {panel === 'history' && (
           <HistoryPanel
+            tabs={panelTabs}
             connectionKey={connectionKey}
             version={historyVersion}
             onLoad={(sql) => editor.current?.setDoc(sql)}
@@ -254,7 +437,7 @@ export function QueryTab({ sessionKey, connectionKey, engine }: Props): React.JS
               editor.current?.setDoc(sql);
               execute(sql);
             }}
-            onClose={() => setHistoryOpen(false)}
+            onClose={() => setPanel(null)}
           />
         )}
       </div>

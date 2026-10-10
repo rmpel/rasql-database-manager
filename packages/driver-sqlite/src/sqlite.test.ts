@@ -37,6 +37,7 @@ CREATE UNIQUE INDEX child_label ON child(label);
 CREATE INDEX child_kind ON child(kind_id, label DESC);
 CREATE VIEW kinds_view AS SELECT id, t FROM kinds;
 CREATE TABLE many (i INTEGER PRIMARY KEY, v TEXT);
+CREATE TRIGGER many_ai AFTER INSERT ON many BEGIN SELECT 1; END;
 `;
 
 async function collect(events: AsyncIterable<QueryEvent>): Promise<QueryEvent[]> {
@@ -171,8 +172,26 @@ describe('sqlite driver', () => {
       expect((await s.listSchemas()).map((x) => x.name)).toEqual(['main']);
       const objects = await s.listObjects('main');
       expect(objects.map((o) => `${o.kind}:${o.name}`).sort()).toEqual(
-        ['table:child', 'table:kinds', 'table:many', 'view:kinds_view'].sort(),
+        ['table:child', 'table:kinds', 'table:many', 'trigger:many_ai', 'view:kinds_view'].sort(),
       );
+    } finally {
+      await s.close();
+    }
+  });
+
+  it('describes triggers and views, and refuses kinds SQLite does not have', async () => {
+    const s = await sqliteDriver.connect(endpoint);
+    try {
+      const trg = await s.describeObject?.('main', 'trigger', 'many_ai');
+      expect(trg?.ddl).toBe('CREATE TRIGGER many_ai AFTER INSERT ON many BEGIN SELECT 1; END');
+      expect(trg?.properties).toEqual([
+        { label: 'Table', value: 'many' },
+        { label: 'Fires', value: 'AFTER INSERT, for each row' },
+      ]);
+      expect((await s.describeObject?.('main', 'view', 'kinds_view'))?.ddl).toMatch(/^CREATE VIEW/);
+      await expect(s.describeObject?.('main', 'routine', 'x')).rejects.toMatchObject({
+        code: 'UNSUPPORTED',
+      });
     } finally {
       await s.close();
     }

@@ -282,3 +282,35 @@ column, AND is right for exclusions and OR for alternatives; a single switch per
 both without a nested rule editor. Forcing case-insensitivity with LOWER() would defeat indexes.
 **Owner:** Remon described the behaviour and approved the design; Claude built it; dated
 2026-10-10.
+
+## D-35 Connection groups and favorites; saved queries per connection or shared
+
+**Decided:** The connection manager lists Favorites first, then one collapsible section per
+group, then the connections without one. Group, favorite and a color override are set in the
+connection form; the star on a row toggles a favorite. Collapsed sections are remembered per
+machine; a search box filters by name, group, host, database or file and opens every section.
+Deleting a connection asks first and removes all its keychain secrets, SSH ones included.
+Saved queries live in `saved-queries.json` beside the history, each tied to one saved
+connection or shared with all of them. A query tab bound to a saved query takes its name, shows
+a dot while it has unsaved changes, and saves in place with Cmd+S; Save as… makes a copy. The
+side panel of the query tab switches between Saved and History. Importing `.spf` and TablePlus
+connections moved to Phase 2.
+**Why:** Groups and favorites are how a list of dozens of client connections stays usable;
+keeping them in the definition keeps them in one file the user can back up. Saved queries are
+per connection because most are about one database; sharing covers the generic ones.
+**Owner:** Remon chose the scope; Claude built it; dated 2026-10-10.
+
+## D-36 Routines, triggers and events open as read-only definitions
+
+**Decided:** Sessions may implement `describeObject(schema, kind, name)`, returning the CREATE
+statement and labelled facts. MySQL and MariaDB answer for procedures, functions (parameters,
+return type, determinism, security), triggers (table, timing, event), events (schedule, status,
+last run, and whether the event scheduler is on) and views; SQLite for triggers and views. The
+sidebar groups objects under headings by kind and opens these as a tab with a plain explanation
+of what the kind does, the facts, the code with syntax highlighting, Copy, and Open in query tab.
+Editing them is not offered: the code can be adapted in a query tab and run there.
+**Why:** WordPress developers rarely meet these objects, but plugins do create them, and a
+trigger that silently rewrites rows is exactly what someone debugging needs to see. Read-only
+keeps the feature small and safe; editing belongs with structure editing in Phase 2.
+**Owner:** Remon asked for it and for an explanation of the concepts; Claude built it; dated
+2026-10-10.

@@ -9,6 +9,8 @@ interface Props {
   onLoad: (sql: string) => void;
   onRun: (sql: string) => void;
   onClose: () => void;
+  /** The Saved and History switch, shown in the header. */
+  tabs: React.ReactNode;
 }
 
 function relative(iso: string): string {
@@ -34,6 +36,7 @@ export function HistoryPanel({
   onLoad,
   onRun,
   onClose,
+  tabs,
 }: Props): React.JSX.Element {
   const [entries, setEntries] = useState<HistoryEntry[]>([]);
   const [filter, setFilter] = useState('');
@@ -60,7 +63,7 @@ export function HistoryPanel({
   return (
     <aside className="history-panel">
       <header>
-        <strong>History</strong>
+        {tabs}
         <span className="spacer" />
         <button
           onClick={() => void clear()}

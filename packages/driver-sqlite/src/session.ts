@@ -4,6 +4,8 @@ import {
   type ColumnDefinition,
   type ColumnMeta,
   type DbObject,
+  type DbObjectKind,
+  type ObjectDefinition,
   type ExplainResult,
   type ForeignKeyDefinition,
   type IndexDefinition,
@@ -102,6 +104,37 @@ export class SqliteSession implements Session {
       if (kind === 'trigger') o.extra = { table: String(r['tbl_name']) };
       return o;
     });
+  }
+
+  async describeObject(
+    schema: string,
+    kind: DbObjectKind,
+    name: string,
+  ): Promise<ObjectDefinition> {
+    if (kind !== 'trigger' && kind !== 'view')
+      throw new DriverError('UNSUPPORTED', `SQLite has no ${kind}s`);
+    const master = `${this.dialect.quoteIdentifier(schema)}.sqlite_master`;
+    const row = this.all(
+      `SELECT sql, tbl_name FROM ${master} WHERE type = ? AND name = ?`,
+      kind,
+      name,
+    )[0];
+    if (!row) throw new DriverError('QUERY_FAILED', `No ${kind} named ${schema}.${name}`);
+    const ddl = String(row['sql'] ?? '');
+    const properties: ObjectDefinition['properties'] = [];
+    if (kind === 'trigger') {
+      properties.push({ label: 'Table', value: String(row['tbl_name']) });
+      // SQLite keeps only the statement; timing and event are read back from it.
+      const m = /\b(BEFORE|AFTER|INSTEAD\s+OF)?\s*(INSERT|UPDATE|DELETE)\b/i.exec(
+        ddl.replace(/^[\s\S]*?\bTRIGGER\b/i, ''),
+      );
+      if (m)
+        properties.push({
+          label: 'Fires',
+          value: `${(m[1] ?? 'BEFORE').toUpperCase().replace(/\s+/g, ' ')} ${(m[2] as string).toUpperCase()}, for each row`,
+        });
+    }
+    return { schema, name, kind, ddl, properties };
   }
 
   async describeTable(schema: string, table: string): Promise<TableDefinition> {

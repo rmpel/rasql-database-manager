@@ -4,6 +4,8 @@ import {
   PROTOCOL_VERSION,
   isDriverMessage,
   type DbObject,
+  type DbObjectKind,
+  type ObjectDefinition,
   type DialectRpcMethod,
   type DriverManifest,
   type DriverMessage,
@@ -31,6 +33,7 @@ export interface RemoteSession {
   listSchemas(): Promise<SchemaInfo[]>;
   listObjects(schema: string): Promise<DbObject[]>;
   describeTable(schema: string, table: string): Promise<TableDefinition>;
+  describeObject(schema: string, kind: DbObjectKind, name: string): Promise<ObjectDefinition>;
   query(sql: string, opts?: QueryOptions): AsyncIterable<QueryEvent>;
   explain(sql: string): Promise<ExplainResult>;
   setReadOnly(on: boolean): Promise<void>;
@@ -300,6 +303,8 @@ export class DriverClient {
       listObjects: (schema) => client.call(id, 'listObjects', [schema]) as Promise<DbObject[]>,
       describeTable: (schema, table) =>
         client.call(id, 'describeTable', [schema, table]) as Promise<TableDefinition>,
+      describeObject: (schema, kind, name) =>
+        client.call(id, 'describeObject', [schema, kind, name]) as Promise<ObjectDefinition>,
       query: (sql, opts) => client.query(id, sql, opts),
       explain: (sql) => client.call(id, 'explain', [sql]) as Promise<ExplainResult>,
       setReadOnly: (on) => client.call(id, 'setReadOnly', [on]) as Promise<void>,

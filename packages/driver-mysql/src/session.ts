@@ -10,6 +10,8 @@ import {
   type ColumnDefinition,
   type ColumnMeta,
   type DbObject,
+  type DbObjectKind,
+  type ObjectDefinition,
   type ExplainResult,
   type ForeignKeyDefinition,
   type IndexDefinition,
@@ -473,6 +475,131 @@ export class MysqlSession implements Session {
       default:
         return V.text(text);
     }
+  }
+
+  async describeObject(
+    schema: string,
+    kind: DbObjectKind,
+    name: string,
+  ): Promise<ObjectDefinition> {
+    const q = this.dialect.quoteIdentifier.bind(this.dialect);
+    const props: ObjectDefinition['properties'] = [];
+    const add = (label: string, value: Scalar): void => {
+      if (value !== undefined && value !== '') props.push({ label, value: String(value) });
+    };
+    /** SHOW CREATE needs privileges a read-only user may lack; information_schema is the fallback. */
+    const showCreate = async (sql: string, column: string): Promise<string | undefined> => {
+      try {
+        return s((await this.fetch(sql))[0]?.[column]);
+      } catch {
+        return undefined;
+      }
+    };
+    let ddl: string | undefined;
+    switch (kind) {
+      case 'routine': {
+        const r = (
+          await this.fetch(
+            'SELECT ROUTINE_TYPE AS type, DTD_IDENTIFIER AS returns_, ROUTINE_DEFINITION AS body, IS_DETERMINISTIC AS det, SQL_DATA_ACCESS AS access, SECURITY_TYPE AS sec, DEFINER AS definer, CREATED AS created, LAST_ALTERED AS altered, ROUTINE_COMMENT AS comment FROM information_schema.ROUTINES WHERE ROUTINE_SCHEMA = ? AND ROUTINE_NAME = ?',
+            [schema, name],
+          )
+        )[0];
+        if (!r) throw new DriverError('QUERY_FAILED', `No routine named ${schema}.${name}`);
+        const type = (s(r['type']) ?? 'PROCEDURE').toUpperCase();
+        add('Type', type.toLowerCase());
+        try {
+          const params = await this.fetch(
+            'SELECT PARAMETER_MODE AS mode, PARAMETER_NAME AS name, DTD_IDENTIFIER AS type FROM information_schema.PARAMETERS WHERE SPECIFIC_SCHEMA = ? AND SPECIFIC_NAME = ? AND ORDINAL_POSITION > 0 ORDER BY ORDINAL_POSITION',
+            [schema, name],
+          );
+          add(
+            'Parameters',
+            params
+              .map((p) => [s(p['mode']), s(p['name']), s(p['type'])].filter(Boolean).join(' '))
+              .join(', ') || 'none',
+          );
+        } catch {
+          /* PARAMETERS is missing on very old servers */
+        }
+        if (type === 'FUNCTION') add('Returns', s(r['returns_']));
+        add('Deterministic', s(r['det'])?.toLowerCase());
+        add('Data access', s(r['access'])?.toLowerCase().replace(/_/g, ' '));
+        add('Security', s(r['sec'])?.toLowerCase());
+        add('Definer', s(r['definer']));
+        add('Created', s(r['created']));
+        add('Last changed', s(r['altered']));
+        add('Comment', s(r['comment']));
+        ddl =
+          (await showCreate(
+            `SHOW CREATE ${type === 'FUNCTION' ? 'FUNCTION' : 'PROCEDURE'} ${q(schema)}.${q(name)}`,
+            type === 'FUNCTION' ? 'Create Function' : 'Create Procedure',
+          )) ?? s(r['body']);
+        break;
+      }
+      case 'trigger': {
+        const r = (
+          await this.fetch(
+            'SELECT EVENT_OBJECT_TABLE AS tbl, ACTION_TIMING AS timing, EVENT_MANIPULATION AS ev, ACTION_ORIENTATION AS orient, ACTION_STATEMENT AS body, DEFINER AS definer, CREATED AS created FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA = ? AND TRIGGER_NAME = ?',
+            [schema, name],
+          )
+        )[0];
+        if (!r) throw new DriverError('QUERY_FAILED', `No trigger named ${schema}.${name}`);
+        add('Table', s(r['tbl']));
+        add(
+          'Fires',
+          `${s(r['timing']) ?? ''} ${s(r['ev']) ?? ''}, for each ${(s(r['orient']) ?? 'row').toLowerCase()}`.trim(),
+        );
+        add('Definer', s(r['definer']));
+        add('Created', s(r['created']));
+        ddl =
+          (await showCreate(
+            `SHOW CREATE TRIGGER ${q(schema)}.${q(name)}`,
+            'SQL Original Statement',
+          )) ?? s(r['body']);
+        break;
+      }
+      case 'event': {
+        const r = (
+          await this.fetch(
+            'SELECT EVENT_TYPE AS type, EXECUTE_AT AS at_, INTERVAL_VALUE AS iv, INTERVAL_FIELD AS iff, STARTS AS starts, ENDS AS ends, STATUS AS status, ON_COMPLETION AS oc, LAST_EXECUTED AS last_, EVENT_DEFINITION AS body, DEFINER AS definer, EVENT_COMMENT AS comment FROM information_schema.EVENTS WHERE EVENT_SCHEMA = ? AND EVENT_NAME = ?',
+            [schema, name],
+          )
+        )[0];
+        if (!r) throw new DriverError('QUERY_FAILED', `No event named ${schema}.${name}`);
+        const recurring = s(r['type']) === 'RECURRING';
+        add(
+          'Schedule',
+          recurring
+            ? `every ${s(r['iv']) ?? ''} ${(s(r['iff']) ?? '').toLowerCase().replace(/_/g, ' ')}`
+            : `once, at ${s(r['at_']) ?? '?'}`,
+        );
+        if (recurring) {
+          add('Starts', s(r['starts']));
+          add('Ends', s(r['ends']));
+        }
+        add('Status', s(r['status'])?.toLowerCase().replace(/_/g, ' '));
+        add('When finished', s(r['oc'])?.toLowerCase().replace(/_/g, ' '));
+        add('Last run', s(r['last_']) ?? 'never');
+        add('Definer', s(r['definer']));
+        add('Comment', s(r['comment']));
+        const scheduler = await this.scalar('SELECT @@event_scheduler').catch(() => undefined);
+        add(
+          'Event scheduler',
+          scheduler === undefined ? undefined : String(scheduler).toLowerCase(),
+        );
+        ddl =
+          (await showCreate(`SHOW CREATE EVENT ${q(schema)}.${q(name)}`, 'Create Event')) ??
+          s(r['body']);
+        break;
+      }
+      case 'view': {
+        ddl = await showCreate(`SHOW CREATE VIEW ${q(schema)}.${q(name)}`, 'Create View');
+        break;
+      }
+      default:
+        throw new DriverError('UNSUPPORTED', `Cannot describe a ${kind}`);
+    }
+    return { schema, name, kind, ddl: ddl ?? '', properties: props };
   }
 
   async describeTable(schema: string, table: string): Promise<TableDefinition> {

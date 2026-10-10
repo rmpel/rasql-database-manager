@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
-import type { DbObject, Filter } from '@rasql/driver-protocol';
+import type { DbObject, DbObjectKind, Filter } from '@rasql/driver-protocol';
 import type { ConnectionDefinition, OpenSessionResult } from '@shared/api';
 import { ENVIRONMENT_COLORS } from '@shared/api';
 import { rasql } from '../api';
 import { Sidebar } from './Sidebar';
 import { TableTab } from './TableTab';
 import { QueryTab } from './QueryTab';
+import { ObjectTab } from './ObjectTab';
 
 type Tab =
   | {
@@ -19,7 +20,22 @@ type Tab =
       /** Applied on first load, e.g. when following a foreign key. */
       initialFilters?: Filter[];
     }
-  | { id: string; kind: 'query'; title: string };
+  | {
+      id: string;
+      kind: 'query';
+      title: string;
+      initialSql?: string;
+      /** The bound saved query's name, with a dot while it has unsaved changes. */
+      savedTitle?: string | null;
+    }
+  | {
+      id: string;
+      kind: 'object';
+      schema: string;
+      name: string;
+      objectKind: DbObjectKind;
+      extra?: Record<string, string>;
+    };
 
 interface Props {
   definition: ConnectionDefinition;
@@ -42,14 +58,40 @@ export function Workspace({ definition, session, onDisconnect }: Props): React.J
     };
   }, [definition.name]);
 
-  const newQueryTab = (): void => {
+  const newQueryTab = (initialSql?: string): void => {
     const n = tabs.filter((t) => t.kind === 'query').length + 1;
-    const tab: Tab = { id: `q${Date.now()}`, kind: 'query', title: `Query ${n}` };
+    const tab: Tab = {
+      id: `q${Date.now()}`,
+      kind: 'query',
+      title: `Query ${n}`,
+      ...(initialSql ? { initialSql } : {}),
+    };
     setTabs((t) => [...t, tab]);
     setActive(tab.id);
   };
 
   const openObject = (obj: DbObject, view: 'content' | 'structure'): void => {
+    if (obj.kind !== 'table' && obj.kind !== 'view') {
+      // Routines, triggers and events open as a read-only definition.
+      const id = `o:${obj.kind}:${obj.schema}.${obj.name}`;
+      setTabs((t) =>
+        t.some((x) => x.id === id)
+          ? t
+          : [
+              ...t,
+              {
+                id,
+                kind: 'object',
+                schema: obj.schema,
+                name: obj.name,
+                objectKind: obj.kind,
+                ...(obj.extra ? { extra: obj.extra } : {}),
+              },
+            ],
+      );
+      setActive(id);
+      return;
+    }
     const id = tableTabId(obj);
     setTabs((t) => {
       const existing = t.find((x) => x.id === id);
@@ -142,7 +184,7 @@ export function Workspace({ definition, session, onDisconnect }: Props): React.J
           {definition.environment === 'production' ? ' · PRODUCTION' : ''}
         </span>
         <span className="spacer" />
-        <button onClick={newQueryTab} title="New query tab (⌘T)">
+        <button onClick={() => newQueryTab()} title="New query tab (⌘T)">
           + Query
         </button>
         <button onClick={() => void rasql.app.showLauncher()} title="Connection manager (⌘N)">
@@ -170,7 +212,11 @@ export function Workspace({ definition, session, onDisconnect }: Props): React.J
                 className={`tab ${t.id === active ? 'active' : ''}`}
                 onClick={() => setActive(t.id)}
               >
-                {t.kind === 'table' ? t.table : t.title}
+                {t.kind === 'table'
+                  ? t.table
+                  : t.kind === 'object'
+                    ? t.name
+                    : (t.savedTitle ?? t.title)}
                 {tabs.length > 1 && (
                   <span
                     className="tab-close"
@@ -204,11 +250,32 @@ export function Workspace({ definition, session, onDisconnect }: Props): React.J
                   onOpenRelated={openRelated}
                   {...(t.initialFilters ? { initialFilters: t.initialFilters } : {})}
                 />
+              ) : t.kind === 'object' ? (
+                <ObjectTab
+                  sessionKey={session.sessionKey}
+                  engine={session.info.engine}
+                  schema={t.schema}
+                  name={t.name}
+                  kind={t.objectKind}
+                  {...(t.extra ? { extra: t.extra } : {})}
+                  onOpenTable={(table) =>
+                    openObject({ kind: 'table', schema: t.schema, name: table }, 'content')
+                  }
+                  onOpenInQuery={(sql) => newQueryTab(sql)}
+                />
               ) : (
                 <QueryTab
                   sessionKey={session.sessionKey}
                   connectionKey={definition.id || definition.name}
                   engine={session.info.engine}
+                  {...(t.initialSql ? { initialSql: t.initialSql } : {})}
+                  onTitleChange={(savedTitle) =>
+                    setTabs((all) =>
+                      all.map((x) =>
+                        x.id === t.id && x.kind === 'query' ? { ...x, savedTitle } : x,
+                      ),
+                    )
+                  }
                 />
               )}
             </div>

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import type { DbObject, SchemaInfo } from '@rasql/driver-protocol';
 import { rasql } from '../api';
 
@@ -169,24 +169,32 @@ export function Sidebar({
         </div>
       )}
       <ul className="object-list">
-        {shown.map((o) => (
-          <li key={`${o.kind}:${o.name}`}>
-            <button
-              className={`object object-${o.kind}`}
-              onClick={() => onOpenObject(o, 'content')}
-              onContextMenu={(e) => void contextMenu(e, o)}
-              disabled={o.kind !== 'table' && o.kind !== 'view'}
-              title={o.comment ?? o.kind}
-            >
-              <span className="object-kind">
-                {o.kind === 'table' ? 'T' : o.kind === 'view' ? 'V' : o.kind[0]?.toUpperCase()}
-              </span>
-              <span className="object-name">{o.name}</span>
-              {o.rowEstimate !== undefined && (
-                <span className="object-rows">{o.rowEstimate.toLocaleString()}</span>
+        {shown.map((o, i) => (
+          <Fragment key={`${o.kind}:${o.name}`}>
+            {/* A heading where a new kind starts, once there is more than tables and views. */}
+            {SECTION[o.kind] &&
+              shown[i - 1]?.kind !== o.kind &&
+              shown.some((x) => x.kind !== 'table' && x.kind !== 'view') && (
+                <li className="object-section">{SECTION[o.kind]}</li>
               )}
-            </button>
-          </li>
+            <li>
+              <button
+                className={`object object-${o.kind}`}
+                onClick={() => onOpenObject(o, 'content')}
+                onContextMenu={(e) => void contextMenu(e, o)}
+                title={o.comment ?? describeKind(o)}
+              >
+                <span className="object-kind">{kindLetter(o)}</span>
+                <span className="object-name">{o.name}</span>
+                {o.rowEstimate !== undefined && (
+                  <span className="object-rows">{o.rowEstimate.toLocaleString()}</span>
+                )}
+                {o.kind === 'trigger' && o.extra?.['table'] && (
+                  <span className="object-rows">{o.extra['table']}</span>
+                )}
+              </button>
+            </li>
+          </Fragment>
         ))}
         {schema && objects.length === 0 && !error && (
           <li className="hint">No objects in {schema}</li>
@@ -194,4 +202,43 @@ export function Sidebar({
       </ul>
     </aside>
   );
+}
+
+const SECTION: Partial<Record<DbObject['kind'], string>> = {
+  table: 'Tables',
+  view: 'Views',
+  routine: 'Routines',
+  trigger: 'Triggers',
+  event: 'Events',
+  sequence: 'Sequences',
+};
+
+function kindLetter(o: DbObject): string {
+  switch (o.kind) {
+    case 'table':
+      return 'T';
+    case 'view':
+      return 'V';
+    case 'routine':
+      return o.extra?.['type'] === 'function' ? 'ƒ' : 'P';
+    case 'trigger':
+      return '⚡';
+    case 'event':
+      return '⏱';
+    default:
+      return 'S';
+  }
+}
+
+function describeKind(o: DbObject): string {
+  switch (o.kind) {
+    case 'routine':
+      return o.extra?.['type'] === 'function' ? 'stored function' : 'stored procedure';
+    case 'trigger':
+      return `trigger: ${[o.extra?.['timing'], o.extra?.['event']].filter(Boolean).join(' ').toLowerCase() || 'runs'} on ${o.extra?.['table'] ?? 'a table'}`;
+    case 'event':
+      return 'scheduled event';
+    default:
+      return o.kind;
+  }
 }

@@ -61,9 +61,9 @@ The invisible work that every later phase depends on.
 
 The minimum that lets a developer replace their current tool.
 
-- Connection manager: favorites, groups, color, environment label, read-only flag, import from Sequel Pro/Ace `.spf` and TablePlus.
+- Connection manager: favorites, groups, color, environment label, read-only flag.
 - Window per connection, tabs inside for tables, queries and panels.
-- Schema browser: databases, tables, views, routines, triggers, events.
+- Schema browser: databases, tables, views, routines, triggers, events (read-only definitions).
 - Data grid: virtualized, paging, column filters (typed rules, same-column any/all groups, quick search, raw WHERE), sorting, inline editing with pending-change review, explicit NULL handling, follow foreign keys, per-type renderers for text, numbers, dates, bytes and JSON.
 - Query editor: tabs, syntax highlighting, autocomplete from the live schema, query history, saved queries, EXPLAIN, cancel a running query.
 - Structure view, read-only: columns, indexes, foreign keys, table options, CREATE statement.
@@ -75,6 +75,7 @@ The minimum that lets a developer replace their current tool.
 
 ### Phase 2: the web developer edge
 
+- Import connections from Sequel Pro/Ace `.spf` favorites and TablePlus (moved from Phase 1).
 - Structure editing with the generated ALTER shown before it runs.
 - Import SQL dumps of any size without loading them into memory.
 - Viewers and editors for JSON and PHP serialized data. WordPress option tables become readable.

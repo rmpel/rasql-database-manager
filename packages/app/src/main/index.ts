@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { electronApp, is, optimizer } from '@electron-toolkit/utils';
 import { ConnectionStore } from './connections';
 import { HistoryStore } from './history';
+import { SavedQueryStore } from './saved-queries';
 import { createCredentialProvider } from './credentials';
 import { parseLaunchArgument, redactUrl } from './deeplink';
 import { registerCellIpc } from './cells';
@@ -30,6 +31,7 @@ if (process.env['RASQL_E2E_HOOKS'])
   (globalThis as Record<string, unknown>)['__rasql'] = { credentials };
 const store = new ConnectionStore();
 const history = new HistoryStore();
+const savedQueries = new SavedQueryStore();
 const tunnels = createSshTunnelManager(log);
 const sessions = new SessionManager(credentials, log, tunnels);
 const windows = new WindowManager((windowId) => void sessions.closeForWindow(windowId));
@@ -78,7 +80,7 @@ if (!app.requestSingleInstanceLock()) {
     }
     app.on('browser-window-created', (_e, win) => optimizer.watchWindowShortcuts(win));
 
-    registerIpc({ store, credentials, sessions, windows, history });
+    registerIpc({ store, credentials, sessions, windows, history, savedQueries });
     registerExportIpc({ sessions });
     registerCellIpc();
     registerSshIpc({ credentials });

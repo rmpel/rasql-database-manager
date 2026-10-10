@@ -335,6 +335,36 @@ describe.each(targets)('mysql driver against $name', ({ name, endpoint }) => {
     expect(find('event', 'ev_touch_parents')).toBeTruthy();
   });
 
+  it('describes routines, triggers and events', async () => {
+    const describeObject = (kind: 'routine' | 'trigger' | 'event', name: string) => {
+      if (!s.describeObject) throw new Error('describeObject is missing');
+      return s.describeObject('rasql', kind, name);
+    };
+    const proc = await describeObject('routine', 'fill_many');
+    expect(proc.properties).toContainEqual({ label: 'Type', value: 'procedure' });
+    expect(proc.properties.find((p) => p.label === 'Parameters')?.value).toMatch(
+      /^IN cnt int(\(11\))?$/i,
+    );
+    const fn = await describeObject('routine', 'child_count');
+    expect(fn.properties.find((p) => p.label === 'Returns')?.value).toMatch(/^int/i);
+    expect(fn.properties).toContainEqual({ label: 'Deterministic', value: 'yes' });
+    const trg = await describeObject('trigger', 'trg_children_bi');
+    expect(trg.properties).toContainEqual({ label: 'Table', value: 'children' });
+    expect(trg.properties).toContainEqual({
+      label: 'Fires',
+      value: 'BEFORE INSERT, for each row',
+    });
+    expect(trg.ddl).toMatch(/TRIM\(NEW\.label\)/);
+    const ev = await describeObject('event', 'ev_touch_parents');
+    expect(ev.properties).toContainEqual({ label: 'Schedule', value: 'every 1 day' });
+    expect(ev.ddl).toMatch(/UPDATE parents/);
+    // Routine bodies need privileges the test user may lack; when shown, they are the real thing.
+    if (proc.ddl) expect(proc.ddl).toMatch(/WHILE i < cnt DO/);
+    await expect(describeObject('routine', 'nope')).rejects.toMatchObject({
+      code: 'QUERY_FAILED',
+    });
+  });
+
   it('reads serialized WordPress data through a dialect-built select', async () => {
     const sql = s.dialect.buildSelect(
       { schema: 'rasql', name: 'wp_options' },

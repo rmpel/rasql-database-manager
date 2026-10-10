@@ -63,11 +63,19 @@ interface Props {
   engine: string;
   initialDoc: string;
   completion: CompletionSource | null;
-  onRun: () => void;
-  onExplain: () => void;
-  onToggleHistory: () => void;
-  onEscape: () => void;
+  onRun?: () => void;
+  onExplain?: () => void;
+  onToggleHistory?: () => void;
+  onEscape?: () => void;
+  /** Mod-S. */
+  onSave?: () => void;
+  /** Called after every edit with the whole document. */
+  onChange?: (doc: string) => void;
+  /** Show the document, allow selecting and copying, refuse edits. */
+  readOnly?: boolean;
 }
+
+const noop = (): void => undefined;
 
 function dialectFor(engine: string): SQLDialect {
   switch (engine) {
@@ -149,15 +157,26 @@ const theme = EditorView.theme({
  * the query tab needs. Document state lives inside CodeMirror; React reads it through the handle.
  */
 export const SqlEditor = forwardRef<SqlEditorHandle, Props>(function SqlEditor(
-  { engine, initialDoc, completion, onRun, onExplain, onToggleHistory, onEscape },
+  {
+    engine,
+    initialDoc,
+    completion,
+    onRun = noop,
+    onExplain = noop,
+    onToggleHistory = noop,
+    onEscape = noop,
+    onSave,
+    onChange,
+    readOnly = false,
+  },
   ref,
 ): React.JSX.Element {
   const host = useRef<HTMLDivElement>(null);
   const view = useRef<EditorView | null>(null);
   // Handlers change identity on every render; the keymap reads the latest through a ref.
-  const handlers = useRef({ onRun, onExplain, onToggleHistory, onEscape });
+  const handlers = useRef({ onRun, onExplain, onToggleHistory, onEscape, onSave, onChange });
   useEffect(() => {
-    handlers.current = { onRun, onExplain, onToggleHistory, onEscape };
+    handlers.current = { onRun, onExplain, onToggleHistory, onEscape, onSave, onChange };
   });
 
   useEffect(() => {
@@ -182,11 +201,22 @@ export const SqlEditor = forwardRef<SqlEditorHandle, Props>(function SqlEditor(
       sql({ dialect }),
       syntaxHighlighting(highlight),
       theme,
+      EditorState.readOnly.of(readOnly),
+      // Definitions are read, not edited: wrap long CREATE lines instead of scrolling sideways.
+      ...(readOnly ? [EditorView.lineWrapping] : []),
+      EditorView.updateListener.of((u) => {
+        if (u.docChanged) handlers.current.onChange?.(u.state.doc.toString());
+      }),
       keymap.of([
         { key: 'Mod-Enter', run: () => (handlers.current.onRun(), true) },
         { key: 'Mod-Shift-e', run: () => (handlers.current.onExplain(), true) },
         { key: 'Mod-Shift-h', run: () => (handlers.current.onToggleHistory(), true) },
         { key: 'Mod-/', run: toggleComment },
+        {
+          key: 'Mod-s',
+          run: () => (handlers.current.onSave ? (handlers.current.onSave(), true) : false),
+          preventDefault: true,
+        },
         { key: 'Escape', run: () => (handlers.current.onEscape(), false) },
         indentWithTab,
         ...closeBracketsKeymap,
@@ -207,7 +237,7 @@ export const SqlEditor = forwardRef<SqlEditorHandle, Props>(function SqlEditor(
     };
     // The editor is created once per engine/completion source; the document is owned by CodeMirror.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [engine, completion]);
+  }, [engine, completion, readOnly]);
 
   useImperativeHandle(
     ref,
