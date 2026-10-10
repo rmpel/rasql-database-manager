@@ -52,6 +52,104 @@ describe('MysqlDialect', () => {
     );
   });
 
+  it('builds one ALTER TABLE with every change, in a safe order', () => {
+    const table = {
+      schema: 'shop',
+      name: 'orders',
+      kind: 'table' as const,
+      columns: [
+        {
+          name: 'id',
+          ordinal: 1,
+          nativeType: 'int(10) unsigned',
+          valueType: 'int' as const,
+          nullable: false,
+          autoIncrement: true,
+        },
+        {
+          name: 'title',
+          ordinal: 2,
+          nativeType: 'varchar(100)',
+          valueType: 'text' as const,
+          nullable: true,
+          autoIncrement: false,
+          charset: 'utf8mb4',
+          collation: 'utf8mb4_unicode_ci',
+        },
+      ],
+      indexes: [],
+      foreignKeys: [],
+      options: {},
+    };
+    const [sql] = d.buildAlter(table, [
+      {
+        kind: 'addIndex',
+        index: {
+          name: 'by_title',
+          unique: false,
+          primary: false,
+          columns: [{ name: 'title', length: 20 }],
+        },
+      },
+      {
+        kind: 'modifyColumn',
+        name: 'title',
+        column: {
+          ...table.columns[1]!,
+          name: 'label',
+          nativeType: 'varchar(200)',
+          nullable: false,
+          default: V.text("it's"),
+        },
+        after: null,
+      },
+      {
+        kind: 'addColumn',
+        column: {
+          name: 'updated',
+          ordinal: 3,
+          nativeType: 'timestamp',
+          valueType: 'datetime',
+          nullable: false,
+          autoIncrement: false,
+          default: { t: 'expression', sql: 'CURRENT_TIMESTAMP' },
+          extra: 'on update CURRENT_TIMESTAMP',
+          comment: 'last change',
+        },
+        after: 'label',
+      },
+      {
+        kind: 'addColumn',
+        column: {
+          name: 'token',
+          ordinal: 4,
+          nativeType: 'char(36)',
+          valueType: 'text',
+          nullable: true,
+          autoIncrement: false,
+          default: { t: 'expression', sql: 'uuid()' },
+        },
+      },
+      { kind: 'dropForeignKey', name: 'fk_old' },
+      { kind: 'setComment', comment: 'Orders' },
+    ]);
+    expect(sql).toBe(
+      [
+        'ALTER TABLE `shop`.`orders`',
+        '  DROP FOREIGN KEY `fk_old`,',
+        "  CHANGE COLUMN `title` `label` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'it''s' FIRST,",
+        "  ADD COLUMN `updated` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT 'last change' AFTER `label`,",
+        '  ADD COLUMN `token` char(36) NULL DEFAULT (uuid()),',
+        '  ADD INDEX `by_title` (`title`(20)),',
+        "  COMMENT = 'Orders'",
+      ].join('\n'),
+    );
+    expect(d.buildAlter(table, [{ kind: 'renameColumn', from: 'id', to: 'order_id' }])[0]).toBe(
+      'ALTER TABLE `shop`.`orders`\n  CHANGE COLUMN `id` `order_id` int(10) unsigned NOT NULL AUTO_INCREMENT',
+    );
+    expect(d.buildAlter(table, [])).toEqual([]);
+  });
+
   it('classifies statements', () => {
     expect(d.classify('SHOW TABLES')).toBe('read');
     expect(d.classify('REPLACE INTO t VALUES (1)')).toBe('write');

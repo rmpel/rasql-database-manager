@@ -365,6 +365,80 @@ describe.each(targets)('mysql driver against $name', ({ name, endpoint }) => {
     });
   });
 
+  it('applies a structure change built by the dialect', async () => {
+    const run = async (sql: string): Promise<void> => {
+      for await (const e of s.query(sql)) if (e.kind === 'error') throw new Error(e.message);
+    };
+    await run('DROP TABLE IF EXISTS alter_probe');
+    await run(
+      "CREATE TABLE alter_probe (id INT NOT NULL AUTO_INCREMENT PRIMARY KEY, title VARCHAR(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin, n INT) COMMENT 'probe'",
+    );
+    try {
+      const before = await s.describeTable('rasql', 'alter_probe');
+      const title = before.columns.find((c) => c.name === 'title')!;
+      const n = before.columns.find((c) => c.name === 'n')!;
+      const statements = (await s.dialect.buildAlter!(before, [
+        {
+          kind: 'modifyColumn',
+          name: 'n',
+          column: {
+            ...n,
+            name: 'amount',
+            nativeType: 'bigint unsigned',
+            nullable: false,
+            default: V.int('0'),
+          },
+          after: 'id',
+        },
+        { kind: 'modifyColumn', name: 'title', column: { ...title, nativeType: 'varchar(120)' } },
+        {
+          kind: 'addColumn',
+          column: {
+            name: 'status',
+            ordinal: 0,
+            nativeType: "enum('draft','publish')",
+            valueType: 'enum',
+            nullable: false,
+            autoIncrement: false,
+            default: V.enum('draft'),
+            comment: 'workflow',
+          },
+        },
+        {
+          kind: 'addIndex',
+          index: {
+            name: 'by_status',
+            unique: false,
+            primary: false,
+            columns: [{ name: 'status' }],
+          },
+        },
+        { kind: 'setComment', comment: 'changed' },
+      ])) as string[];
+      expect(statements).toHaveLength(1);
+      for (const sql of statements) await run(sql);
+      const after = await s.describeTable('rasql', 'alter_probe');
+      expect(after.columns.map((c) => c.name)).toEqual(['id', 'amount', 'title', 'status']);
+      const amount = after.columns.find((c) => c.name === 'amount')!;
+      expect(amount.nativeType).toMatch(/^bigint(\(20\))? unsigned$/);
+      expect(amount.nullable).toBe(false);
+      expect(amount.default).toEqual(V.int('0'));
+      // The column kept its own collation instead of falling back to the table's.
+      expect(after.columns.find((c) => c.name === 'title')).toMatchObject({
+        nativeType: 'varchar(120)',
+        collation: 'utf8mb4_bin',
+      });
+      expect(after.columns.find((c) => c.name === 'status')).toMatchObject({
+        default: V.enum('draft'),
+        comment: 'workflow',
+      });
+      expect(after.indexes.map((i) => i.name)).toContain('by_status');
+      expect(after.comment).toBe('changed');
+    } finally {
+      await run('DROP TABLE IF EXISTS alter_probe');
+    }
+  });
+
   it('reads serialized WordPress data through a dialect-built select', async () => {
     const sql = s.dialect.buildSelect(
       { schema: 'rasql', name: 'wp_options' },

@@ -51,6 +51,27 @@ export async function launch(
       NODE_ENV: 'production',
     },
   });
+  // No native dialog may reach the screen during a test: a person clicking it would decide the
+  // outcome. Message boxes answer Cancel and file pickers cancel; a test that needs another answer
+  // replaces these stubs itself.
+  await app.evaluate(({ dialog }) => {
+    dialog.showMessageBox = (async (...args: unknown[]) => {
+      const opts = (args.length > 1 ? args[1] : args[0]) as {
+        buttons?: string[];
+        cancelId?: number;
+      };
+      const response = opts.cancelId ?? Math.max(0, (opts.buttons?.length ?? 1) - 1);
+      return { response, checkboxChecked: false };
+    }) as typeof dialog.showMessageBox;
+    dialog.showOpenDialog = (async () => ({
+      canceled: true,
+      filePaths: [],
+    })) as typeof dialog.showOpenDialog;
+    dialog.showSaveDialog = (async () => ({
+      canceled: true,
+      filePath: '',
+    })) as typeof dialog.showSaveDialog;
+  });
   const page = await app.firstWindow();
   await page.waitForLoadState('domcontentloaded');
   await expect(page.getByRole('heading', { name: 'RaSQL' })).toBeVisible();

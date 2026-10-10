@@ -10,6 +10,8 @@ interface Props {
   onOpenObject: (obj: DbObject, view: 'content' | 'structure') => void;
   onObjectDropped: (obj: DbObject) => void;
   onRefreshObject: (obj: DbObject) => void;
+  /** Changing it reloads the object list. */
+  refreshToken?: number;
 }
 
 export function Sidebar({
@@ -20,6 +22,7 @@ export function Sidebar({
   onOpenObject,
   onObjectDropped,
   onRefreshObject,
+  refreshToken = 0,
 }: Props): React.JSX.Element {
   const [schemas, setSchemas] = useState<SchemaInfo[]>([]);
   const [objects, setObjects] = useState<DbObject[]>([]);
@@ -48,7 +51,7 @@ export function Sidebar({
       .catch((e: unknown) => setError(String(e)));
   }, [sessionKey, schema]);
 
-  useEffect(reload, [reload]);
+  useEffect(reload, [reload, refreshToken]);
 
   const shown = useMemo(() => {
     const q = filter.trim().toLowerCase();

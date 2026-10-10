@@ -104,10 +104,15 @@ export interface SelectOptions {
   offset?: number;
 }
 
+/**
+ * One change to a table. Column positions: `after` absent keeps the place (or appends a new
+ * column), null puts the column first, a name puts it after that column.
+ * modifyColumn with a different `column.name` renames the column as well.
+ */
 export type StructureChange =
   | { kind: 'addColumn'; column: ColumnDefinition; after?: string | null }
   | { kind: 'dropColumn'; name: string }
-  | { kind: 'modifyColumn'; name: string; column: ColumnDefinition }
+  | { kind: 'modifyColumn'; name: string; column: ColumnDefinition; after?: string | null }
   | { kind: 'renameColumn'; from: string; to: string }
   | { kind: 'addIndex'; index: IndexDefinition }
   | { kind: 'dropIndex'; name: string }
@@ -142,6 +147,26 @@ export interface TypeDescriptor {
   hasScale?: boolean;
   hasValues?: boolean;
   unsignedAllowed?: boolean;
+  /** A short plain-language note for the type picker, e.g. "whole numbers up to about 2 billion". */
+  description?: string;
+}
+
+/** What a driver's buildAlter can do; the structure editor only offers these. */
+export interface AlterCapabilities {
+  addColumn: boolean;
+  dropColumn: boolean;
+  renameColumn: boolean;
+  /** Change type, nullability, default, comment and so on, in place. */
+  modifyColumn: boolean;
+  moveColumn: boolean;
+  indexes: boolean;
+  primaryKey: boolean;
+  foreignKeys: boolean;
+  tableComment: boolean;
+  columnComments: boolean;
+  renameTable: boolean;
+  /** Charset and collation per column. */
+  collations: boolean;
 }
 
 export interface DialectInfo {
@@ -153,6 +178,8 @@ export interface DialectInfo {
   pingSql: string;
   /** Filter operators the driver can build. Absent means the classic set before 'contains'. */
   filterOperators?: FilterOperator[];
+  /** Absent means the driver cannot alter tables. */
+  alter?: AlterCapabilities;
 }
 
 /**

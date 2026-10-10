@@ -197,6 +197,62 @@ describe('sqlite driver', () => {
     }
   });
 
+  it('alters tables in place where SQLite can, and says so where it cannot', async () => {
+    const s = await sqliteDriver.connect(endpoint);
+    const run = async (sql: string): Promise<void> => {
+      for await (const e of s.query(sql)) if (e.kind === 'error') throw new Error(e.message);
+    };
+    try {
+      await run('CREATE TABLE probe (id INTEGER PRIMARY KEY, a TEXT, b TEXT)');
+      const before = await s.describeTable('main', 'probe');
+      const a = before.columns.find((c) => c.name === 'a')!;
+      const statements = s.dialect.buildAlter!(before, [
+        { kind: 'modifyColumn', name: 'a', column: { ...a, name: 'title' } },
+        { kind: 'dropColumn', name: 'b' },
+        {
+          kind: 'addColumn',
+          column: {
+            name: 'n',
+            ordinal: 0,
+            nativeType: 'INTEGER',
+            valueType: 'int',
+            nullable: false,
+            autoIncrement: false,
+            default: V.int('0'),
+          },
+        },
+        {
+          kind: 'addIndex',
+          index: {
+            name: 'probe_title',
+            unique: true,
+            primary: false,
+            columns: [{ name: 'title' }],
+          },
+        },
+      ]);
+      expect(statements).toEqual([
+        'ALTER TABLE "main"."probe" RENAME COLUMN "a" TO "title"',
+        'ALTER TABLE "main"."probe" DROP COLUMN "b"',
+        'ALTER TABLE "main"."probe" ADD COLUMN "n" INTEGER NOT NULL DEFAULT 0',
+        'CREATE UNIQUE INDEX "main"."probe_title" ON "probe" ("title")',
+      ]);
+      for (const sql of statements) await run(sql);
+      const after = await s.describeTable('main', 'probe');
+      expect(after.columns.map((c) => c.name)).toEqual(['id', 'title', 'n']);
+      expect(after.indexes.map((i) => i.name)).toContain('probe_title');
+      expect(() =>
+        s.dialect.buildAlter!(after, [
+          { kind: 'modifyColumn', name: 'n', column: { ...after.columns[2]!, nativeType: 'TEXT' } },
+        ]),
+      ).toThrow(/rebuilding the table/);
+      expect(s.dialect.describe().alter?.modifyColumn).toBe(false);
+    } finally {
+      await run('DROP TABLE IF EXISTS probe');
+      await s.close();
+    }
+  });
+
   it('reports affected rows and insert id for statements without results', async () => {
     const s = await sqliteDriver.connect(endpoint);
     try {

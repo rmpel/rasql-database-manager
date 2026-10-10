@@ -314,3 +314,24 @@ trigger that silently rewrites rows is exactly what someone debugging needs to s
 keeps the feature small and safe; editing belongs with structure editing in Phase 2.
 **Owner:** Remon asked for it and for an explanation of the concepts; Claude built it; dated
 2026-10-10.
+
+## D-37 The structure editor builds changes as data; drivers turn them into ALTER statements
+
+**Decided:** The Structure tab is an editor. A column type is picked in two steps, a plain-language
+kind (whole number, text, date and time, choice from a list…) and then the engine's type, with
+size, decimals, unsigned and enum values as separate fields and a one-line description of the
+chosen type. Defaults read as people expect: no default, NULL, a value, or an expression such as
+CURRENT_TIMESTAMP. Columns can be added, renamed, retyped, reordered and dropped; indexes and
+foreign keys added and dropped (an edited index is dropped and re-added); the table renamed and
+commented. The editor diffs the draft against the definition into protocol `StructureChange`s, and
+the driver's `buildAlter` writes the SQL, which is shown before anything runs and again in the
+confirmation, with warnings for dropped columns, narrowed types and new NOT NULL constraints.
+MySQL and MariaDB get one ALTER TABLE so the server applies all or nothing; modified columns
+keep their own charset and collation. SQLite gets its in-place forms (add, rename, drop column,
+indexes, rename table) in one transaction; changing a type or default there needs a table rebuild
+and is left for Phase 2. Drivers advertise `DialectInfo.alter` so the editor offers only what will
+work. Moves are minimal: the longest run of columns already in order stays put.
+**Why:** Remon asked for a structure editor for less savvy users, with the type as a content-aware
+dropdown instead of a raw string. Keeping SQL generation in the driver keeps the editor engine
+neutral, and showing the exact statement keeps it honest.
+**Owner:** Remon asked for it for V1; Claude built it; dated 2026-10-10.

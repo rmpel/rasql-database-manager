@@ -49,6 +49,8 @@ export function Workspace({ definition, session, onDisconnect }: Props): React.J
   const [schema, setSchema] = useState<string | null>(definition.database ?? null);
   const [tabs, setTabs] = useState<Tab[]>([{ id: 'q1', kind: 'query', title: 'Query 1' }]);
   const [active, setActive] = useState('q1');
+  /** Bumped when objects change from here, so the sidebar lists them again. */
+  const [objectsVersion, setObjectsVersion] = useState(0);
   const color = definition.color ?? ENVIRONMENT_COLORS[definition.environment];
 
   useEffect(() => {
@@ -203,6 +205,7 @@ export function Workspace({ definition, session, onDisconnect }: Props): React.J
           onOpenObject={openObject}
           onObjectDropped={(obj) => closeTab(tableTabId(obj))}
           onRefreshObject={bumpTab}
+          refreshToken={objectsVersion}
         />
         <section className="tabs">
           <nav className="tab-strip">
@@ -249,6 +252,20 @@ export function Workspace({ definition, session, onDisconnect }: Props): React.J
                   active={t.id === active}
                   onOpenRelated={openRelated}
                   {...(t.initialFilters ? { initialFilters: t.initialFilters } : {})}
+                  readOnly={definition.readOnly}
+                  onRenamed={(name) => {
+                    // The tab follows the table to its new name; the sidebar lists it again.
+                    const id = tableTabId({ schema: t.schema, name });
+                    setTabs((all) =>
+                      all.map((x) =>
+                        x.id === t.id && x.kind === 'table'
+                          ? { ...x, id, table: name, generation: x.generation + 1 }
+                          : x,
+                      ),
+                    );
+                    setActive(id);
+                    setObjectsVersion((v) => v + 1);
+                  }}
                 />
               ) : t.kind === 'object' ? (
                 <ObjectTab

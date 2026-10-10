@@ -66,7 +66,7 @@ The minimum that lets a developer replace their current tool.
 - Schema browser: databases, tables, views, routines, triggers, events (read-only definitions).
 - Data grid: virtualized, paging, column filters (typed rules, same-column any/all groups, quick search, raw WHERE), sorting, inline editing with pending-change review, explicit NULL handling, follow foreign keys, per-type renderers for text, numbers, dates, bytes and JSON.
 - Query editor: tabs, syntax highlighting, autocomplete from the live schema, query history, saved queries, EXPLAIN, cancel a running query.
-- Structure view, read-only: columns, indexes, foreign keys, table options, CREATE statement.
+- Structure editor: columns (type picked by kind, size, unsigned, values, default, nullability, auto increment, comment, position), indexes, foreign keys, table name and comment, with the generated ALTER shown before it runs. SQLite gets what it can do in place.
 - Export: SQL, CSV, JSON, for a table or a result set.
 - Command palette.
 - One-click open: `rasql://` URL scheme, `mysql://` URLs, `.rasql` and `.spf` files, CLI entry point, SQLite file association.
@@ -76,7 +76,7 @@ The minimum that lets a developer replace their current tool.
 ### Phase 2: the web developer edge
 
 - Import connections from Sequel Pro/Ace `.spf` favorites and TablePlus (moved from Phase 1).
-- Structure editing with the generated ALTER shown before it runs.
+- SQLite table rebuilds, so column types and defaults can change there too (MySQL editing shipped in Phase 1).
 - Import SQL dumps of any size without loading them into memory.
 - Viewers and editors for JSON and PHP serialized data. WordPress option tables become readable.
 - Charset tools: show raw bytes, reinterpret a column as another charset, detect the latin1-holding-utf8 problem.

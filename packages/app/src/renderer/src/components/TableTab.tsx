@@ -13,6 +13,7 @@ import { keyColumnsFor, useStagedChanges, type RowRef } from '../hooks/useStaged
 import { DataGrid, type SortState } from './DataGrid';
 import { ExportButton } from './ExportButton';
 import { CellInspector } from './CellInspector';
+import { StructureEditor } from './StructureEditor';
 import { useResizable } from '../hooks/useResizable';
 import { FilterBar } from './FilterBar';
 import {
@@ -46,6 +47,10 @@ interface Props {
   initialFilters?: Filter[];
   /** Open another table with filters, for following foreign keys either way. */
   onOpenRelated?: (target: { schema: string; name: string }, filters: Filter[]) => void;
+  /** The connection is read-only: structure is shown but not editable. */
+  readOnly?: boolean;
+  /** The table was renamed from its Structure view. */
+  onRenamed?: (newName: string) => void;
 }
 
 export function TableTab({
@@ -58,11 +63,14 @@ export function TableTab({
   active,
   initialFilters,
   onOpenRelated,
+  readOnly = false,
+  onRenamed,
 }: Props): React.JSX.Element {
   const { state, run } = useQuery(sessionKey);
   const count = useQuery(sessionKey);
   const staged = useStagedChanges();
   const [definition, setDefinition] = useState<TableDefinition | null>(null);
+  const [definitionVersion, setDefinitionVersion] = useState(0);
   const [selectedRow, setSelectedRow] = useState<RowRef | null>(null);
   const [message, setMessage] = useState<{ kind: 'info' | 'error'; text: string } | null>(null);
   const [committing, setCommitting] = useState(false);
@@ -256,7 +264,7 @@ export function TableTab({
       .describeTable(sessionKey, schema, table)
       .then(setDefinition)
       .catch(() => setDefinition(null));
-  }, [sessionKey, schema, table]);
+  }, [sessionKey, schema, table, definitionVersion]);
 
   // Refresh a clean, visible content tab when the window comes back into focus, at most once
   // every few seconds: some window systems report focus on every click.
@@ -616,98 +624,23 @@ export function TableTab({
             </div>
           )}
         </div>
+      ) : definition ? (
+        <StructureEditor
+          sessionKey={sessionKey}
+          definition={definition}
+          editable={kind === 'table' && !readOnly}
+          onApplied={(renamedTo) => {
+            if (renamedTo) {
+              onRenamed?.(renamedTo);
+              return;
+            }
+            // New columns and types: reload both the definition and the rows.
+            setDefinitionVersion((v) => v + 1);
+            void reload();
+          }}
+        />
       ) : (
-        <Structure definition={definition} />
-      )}
-    </div>
-  );
-}
-
-function Structure({ definition }: { definition: TableDefinition | null }): React.JSX.Element {
-  if (!definition) return <div className="hint">Loading structure…</div>;
-  return (
-    <div className="structure">
-      <table className="plain">
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>Column</th>
-            <th>Type</th>
-            <th>Null</th>
-            <th>Default</th>
-            <th>Extra</th>
-          </tr>
-        </thead>
-        <tbody>
-          {definition.columns.map((c) => (
-            <tr key={c.name}>
-              <td>{c.ordinal}</td>
-              <td>
-                {definition.primaryKey?.includes(c.name) && <span title="primary key">🔑 </span>}
-                {c.name}
-              </td>
-              <td>
-                <code>{c.nativeType}</code> <span className="grid-type">{c.valueType}</span>
-              </td>
-              <td>{c.nullable ? 'yes' : 'no'}</td>
-              <td>
-                {c.default ? (
-                  c.default.t === 'expression' ? (
-                    <code>{c.default.sql}</code>
-                  ) : (
-                    JSON.stringify(c.default)
-                  )
-                ) : (
-                  ''
-                )}
-              </td>
-              <td>
-                {c.autoIncrement ? 'auto increment ' : ''}
-                {c.generated ? `generated (${c.generated.stored ? 'stored' : 'virtual'}) ` : ''}
-                {c.extra ?? ''}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      {definition.indexes.length > 0 && (
-        <>
-          <h3>Indexes</h3>
-          <ul>
-            {definition.indexes.map((i) => (
-              <li key={i.name}>
-                <strong>{i.name}</strong> {i.primary ? 'PRIMARY' : i.unique ? 'UNIQUE' : ''} (
-                {i.columns
-                  .map(
-                    (c) =>
-                      `${c.name ?? c.expression ?? ''}${c.length ? `(${c.length})` : ''}${c.order === 'desc' ? ' DESC' : ''}`,
-                  )
-                  .join(', ')}
-                )
-              </li>
-            ))}
-          </ul>
-        </>
-      )}
-      {definition.foreignKeys.length > 0 && (
-        <>
-          <h3>Foreign keys</h3>
-          <ul>
-            {definition.foreignKeys.map((f) => (
-              <li key={f.name}>
-                <strong>{f.name}</strong> ({f.columns.join(', ')}) → {f.referencedTable} (
-                {f.referencedColumns.join(', ')}){f.onDelete ? ` ON DELETE ${f.onDelete}` : ''}
-                {f.onUpdate ? ` ON UPDATE ${f.onUpdate}` : ''}
-              </li>
-            ))}
-          </ul>
-        </>
-      )}
-      {definition.ddl && (
-        <>
-          <h3>DDL</h3>
-          <pre>{definition.ddl}</pre>
-        </>
+        <div className="hint">Loading structure…</div>
       )}
     </div>
   );

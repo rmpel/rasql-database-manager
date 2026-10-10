@@ -432,7 +432,7 @@ export class MysqlSession implements Session {
   ): ColumnDefinition['default'] {
     const dflt = r['dflt'];
     if (!dflt || dflt.t === 'null') return undefined;
-    const text = s(dflt) ?? '';
+    let text = s(dflt) ?? '';
     const isMaria = this.flavor?.engine === 'mariadb';
     if (/DEFAULT_GENERATED/i.test(extra)) return { t: 'expression', sql: text };
     if (/^CURRENT_TIMESTAMP(\(\d*\))?$/i.test(text) || /^current_timestamp(\(\d*\))?$/.test(text)) {
@@ -442,14 +442,15 @@ export class MysqlSession implements Session {
       // MariaDB 10.2+ returns defaults as SQL: NULL, 'quoted string', or an expression.
       if (text === 'NULL') return V.null();
       const quoted = /^'([\s\S]*)'$/.exec(text);
-      if (quoted) return V.text(quoted[1]!.replace(/''/g, "'").replace(/\\(.)/g, '$1'));
-      if (/^-?\d+(\.\d+)?$/.test(text))
+      // A quoted default is a literal of the column's type, read below like MySQL's bare text.
+      if (quoted) text = quoted[1]!.replace(/''/g, "'").replace(/\\(.)/g, '$1');
+      else if (/^-?\d+(\.\d+)?$/.test(text))
         return valueType === 'int'
           ? V.int(text)
           : valueType === 'decimal'
             ? V.decimal(text)
             : V.float(Number(text));
-      return { t: 'expression', sql: text };
+      else return { t: 'expression', sql: text };
     }
     switch (valueType) {
       case 'int':
