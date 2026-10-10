@@ -52,6 +52,14 @@ test('inspects bytes, JSON and base64 text, and replaces a blob from a file', as
     const inspector = pane.locator('.inspector');
     await expect(inspector).toContainText('PNG image');
     await expect(inspector.locator('.inspector-image')).toBeVisible();
+    // Visible is not enough: a blocked blob: URL renders a broken-image placeholder. Require pixels.
+    await expect
+      .poll(() =>
+        inspector
+          .locator('.inspector-image')
+          .evaluate((img) => (img as HTMLImageElement).naturalWidth),
+      )
+      .toBe(1);
     await expect(inspector.locator('.inspector-hex')).toContainText('89 50 4e 47');
     await ws.screenshot({ path: join(SHOTS, '13-inspector-bytes.png') });
 
@@ -64,7 +72,13 @@ test('inspects bytes, JSON and base64 text, and replaces a blob from a file', as
     await row.locator('td').nth(5).click();
     await expect(inspector).toContainText('looks like base64-encoded PNG image');
     await inspector.getByRole('button', { name: 'Decoded' }).click();
-    await expect(inspector.locator('.inspector-image')).toBeVisible();
+    await expect
+      .poll(() =>
+        inspector
+          .locator('.inspector-image')
+          .evaluate((img) => (img as HTMLImageElement).naturalWidth),
+      )
+      .toBe(1);
 
     // Replace the blob from a file: the native dialog is stubbed from the main process.
     await app.evaluate(({ dialog }, path) => {
