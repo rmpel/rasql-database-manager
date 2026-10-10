@@ -54,6 +54,13 @@ test('edits PHP serialized data as a tree without losing types or lengths', asyn
     await tree.locator('.php-class').fill('MyWidget');
     await ws.screenshot({ path: join(SHOTS, '14-inspector-php.png') });
     await inspector.getByRole('button', { name: 'Stage', exact: true }).click();
+    // Commit asks for confirmation through a native dialog; answer it from the main process.
+    await app.evaluate(({ dialog }) => {
+      dialog.showMessageBox = (async () => ({
+        response: 0,
+        checkboxChecked: false,
+      })) as typeof dialog.showMessageBox;
+    });
     await expect(pane.locator('.pending-badge')).toHaveText('1 pending');
     await pane.getByRole('button', { name: 'Commit', exact: true }).click();
     await expect(pane.locator('.toolbar-status')).toContainText('Committed 1 statement', {
