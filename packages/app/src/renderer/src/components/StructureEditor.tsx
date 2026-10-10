@@ -16,6 +16,7 @@ import {
   draftFromDefinition,
   draftProblem,
   formatDefault,
+  kindLabel,
   kindOf,
   kindsFor,
   newColumnDraft,
@@ -697,7 +698,7 @@ function TypePicker({
       >
         {kindsFor(types).map((k) => (
           <option key={k.id} value={k.id}>
-            {k.label}
+            {kindLabel(k, types)}
           </option>
         ))}
       </select>

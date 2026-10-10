@@ -12,7 +12,9 @@ import {
   draftFromDefinition,
   draftProblem,
   formatDefault,
+  kindLabel,
   kindOf,
+  kindsFor,
   newColumnDraft,
   parseNativeType,
   partsForKind,
@@ -138,6 +140,15 @@ describe('type parts', () => {
 
   it('groups types by kind and picks sensible ones for a new kind', () => {
     expect(kindOf(TYPES, 'BIGINT')?.label).toBe('Whole number');
+    const label = (id: string): string =>
+      kindLabel(
+        kindsFor(TYPES).find((k) => k.id === id)!,
+        TYPES,
+      );
+    expect(label('float')).toBe('Approximate number (DOUBLE)');
+    expect(label('integer')).toBe('Whole number (INT, BIGINT, TINYINT)');
+    expect(label('text')).toBe('Text (VARCHAR, LONGTEXT)');
+    expect(label('choice')).toBe('Choice from a list (ENUM)');
     expect(typesOfKind(TYPES, 'integer').map((t) => t.name)).toEqual(['TINYINT', 'INT', 'BIGINT']);
     expect(partsForKind(TYPES, 'text')).toMatchObject({ base: 'VARCHAR', length: '255' });
     expect(partsForKind(TYPES, 'decimal')).toMatchObject({ precision: '10', scale: '2' });

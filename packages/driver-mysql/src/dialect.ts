@@ -133,7 +133,7 @@ const TYPES: TypeDescriptor[] = [
     hasPrecision: true,
     description: 'Date and time stored in UTC, 1970 to 2038.',
   },
-  { name: 'YEAR', category: 'integer', description: 'A year, 1901 to 2155.' },
+  { name: 'YEAR', category: 'date', description: 'A year, 1901 to 2155.' },
   {
     name: 'ENUM',
     category: 'enum',

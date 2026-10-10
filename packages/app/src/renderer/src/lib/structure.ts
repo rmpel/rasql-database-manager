@@ -82,6 +82,32 @@ export function kindOf(types: TypeDescriptor[], base: string): TypeKind | undefi
   return d ? TYPE_KINDS.find((k) => k.categories.includes(d.category)) : undefined;
 }
 
+/** Type names to show first for each kind, when the driver has them. */
+const NAMED_FIRST: Record<string, string[]> = {
+  integer: ['INT', 'BIGINT', 'TINYINT', 'INTEGER'],
+  decimal: ['DECIMAL', 'NUMERIC'],
+  float: ['FLOAT', 'DOUBLE', 'REAL'],
+  text: ['VARCHAR', 'CHAR', 'TEXT'],
+  datetime: ['DATETIME', 'DATE', 'TIMESTAMP', 'TIME'],
+  choice: ['ENUM', 'SET'],
+  binary: ['BLOB', 'VARBINARY', 'BINARY'],
+  spatial: ['GEOMETRY', 'POINT'],
+};
+
+/**
+ * The kind as shown in the dropdown: plain words plus the engine's own type names, so
+ * "Approximate number (FLOAT, DOUBLE)" is recognisable to anyone who knows the SQL names.
+ */
+export function kindLabel(kind: TypeKind, types: TypeDescriptor[]): string {
+  const names = typesOfKind(types, kind.id).map((t) => t.name);
+  const preferred = (NAMED_FIRST[kind.id] ?? []).filter((n) => names.includes(n));
+  const ordered = [...preferred, ...names.filter((n) => !preferred.includes(n))];
+  const shown = ordered.slice(0, 3);
+  // A kind with one type named like the label needs no repetition: "JSON", not "JSON (JSON)".
+  if (shown.length === 1 && shown[0]!.toLowerCase() === kind.label.toLowerCase()) return kind.label;
+  return `${kind.label} (${shown.join(', ')}${ordered.length > 3 ? ', …' : ''})`;
+}
+
 /** The kinds this driver has types for. */
 export function kindsFor(types: TypeDescriptor[]): TypeKind[] {
   return TYPE_KINDS.filter((k) => types.some((t) => k.categories.includes(t.category)));

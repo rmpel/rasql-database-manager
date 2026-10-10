@@ -137,6 +137,13 @@ test('MySQL structure: type pickers, defaults, moving a column', async () => {
     // views: Whole number, INT → BIGINT UNSIGNED, the description follows the choice.
     const views = row(ws, 'views');
     await expect(views.locator('.type-picker select').first()).toHaveValue('integer');
+    // The kinds carry the engine's own type names next to the plain words.
+    await expect(
+      views.locator('.type-picker select').first().locator('option[value="float"]'),
+    ).toHaveText('Approximate number (FLOAT, DOUBLE)');
+    await expect(
+      views.locator('.type-picker select').first().locator('option[value="integer"]'),
+    ).toHaveText('Whole number (INT, BIGINT, TINYINT, …)');
     await views.locator('.type-picker select').nth(1).selectOption('BIGINT');
     await views.locator('.unsigned input').check();
     await expect(editor.locator('.type-hint')).toContainText('quintillion');
