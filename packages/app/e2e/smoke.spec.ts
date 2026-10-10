@@ -7,7 +7,6 @@ import { expect, test } from '@playwright/test';
 import {
   KEYCHAIN_SERVICE,
   SHOTS,
-  expectWorkspace,
   launch,
   openNewConnectionForm,
   portOpen,

@@ -3,13 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { expect, test } from '@playwright/test';
-import {
-  SHOTS,
-  expectWorkspace,
-  launch,
-  openNewConnectionForm,
-  openConnectionWindow,
-} from './helpers';
+import { SHOTS, launch, openNewConnectionForm, openConnectionWindow } from './helpers';
 
 const mod = process.platform === 'darwin' ? 'Meta' : 'Control';
 
