@@ -6,6 +6,7 @@ import { keyColumnsFor, useStagedChanges, type RowRef } from '../hooks/useStaged
 import { DataGrid, type SortState } from './DataGrid';
 import { ExportButton } from './ExportButton';
 import { CellInspector } from './CellInspector';
+import { useResizable } from '../hooks/useResizable';
 import {
   activeFilterCount,
   compileFilters,
@@ -71,6 +72,13 @@ export function TableTab({
   const [references, setReferences] = useState<IncomingReference[] | null>(null);
   const [selectedCell, setSelectedCell] = useState<{ ref: RowRef; col: number } | null>(null);
   const [showInspector, setShowInspector] = useState(false);
+  const dock = useRef<HTMLDivElement>(null);
+  const inspectorSize = useResizable({
+    storageKey: 'rasql.inspectorHeight',
+    initial: 280,
+    min: 120,
+    containerRef: dock,
+  });
   const [referencesOpen, setReferencesOpen] = useState(false);
   const referencesMenu = useRef<HTMLSpanElement>(null);
 
@@ -530,7 +538,7 @@ export function TableTab({
         />
       )}
       {view === 'content' ? (
-        <div className="grid-with-inspector">
+        <div className="grid-with-inspector" ref={dock}>
           <DataGrid
             columns={state.columns}
             rows={state.rows}
@@ -543,27 +551,39 @@ export function TableTab({
             onSelectCell={setSelectedCell}
             {...(editable ? { staged, selectedRow, onSelectRow: setSelectedRow } : {})}
           />
-          {showInspector && selectedCell && inspectedValue && inspectedColumn && (
-            <CellInspector
-              cellKey={`${selectedCell.ref.kind === 'row' ? selectedCell.ref.index : `i${selectedCell.ref.id}`}:${selectedCell.col}`}
-              column={inspectedColumn}
-              value={inspectedValue}
-              editable={editable && selectedCell.ref.kind === 'row'}
-              onStage={(v) =>
-                staged.stageEdit(
-                  selectedCell.ref,
-                  selectedCell.col,
-                  v,
-                  state.rows[selectedCell.ref.kind === 'row' ? selectedCell.ref.index : -1]?.[
-                    selectedCell.col
-                  ],
-                )
-              }
-              onClose={() => setShowInspector(false)}
-            />
-          )}
-          {showInspector && !selectedCell && (
-            <div className="inspector inspector-empty">Click a cell to inspect it.</div>
+          {showInspector && (
+            <div
+              className={`inspector-dock${inspectorSize.resizing ? ' resizing' : ''}`}
+              style={{ height: inspectorSize.size }}
+            >
+              <div
+                className="inspector-resizer"
+                title="Drag to resize"
+                onPointerDown={inspectorSize.onPointerDown}
+              />
+              {selectedCell && inspectedValue && inspectedColumn && (
+                <CellInspector
+                  cellKey={`${selectedCell.ref.kind === 'row' ? selectedCell.ref.index : `i${selectedCell.ref.id}`}:${selectedCell.col}`}
+                  column={inspectedColumn}
+                  value={inspectedValue}
+                  editable={editable && selectedCell.ref.kind === 'row'}
+                  onStage={(v) =>
+                    staged.stageEdit(
+                      selectedCell.ref,
+                      selectedCell.col,
+                      v,
+                      state.rows[selectedCell.ref.kind === 'row' ? selectedCell.ref.index : -1]?.[
+                        selectedCell.col
+                      ],
+                    )
+                  }
+                  onClose={() => setShowInspector(false)}
+                />
+              )}
+              {!selectedCell && (
+                <div className="inspector inspector-empty">Click a cell to inspect it.</div>
+              )}
+            </div>
           )}
         </div>
       ) : (

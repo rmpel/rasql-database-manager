@@ -886,8 +886,32 @@ table.plain {
 .grid-table td.selected-cell {
   box-shadow: inset 0 0 0 2px var(--accent);
 }
+.inspector-dock {
+  position: relative;
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  &.resizing {
+    user-select: none;
+    cursor: row-resize;
+  }
+}
+.inspector-resizer {
+  position: absolute;
+  top: -3px;
+  left: 0;
+  right: 0;
+  height: 7px;
+  cursor: row-resize;
+  z-index: 2;
+  &:hover,
+  .resizing & {
+    background: color-mix(in srgb, var(--accent) 40%, transparent);
+  }
+}
 .inspector {
-  flex: 0 0 280px;
+  flex: 1;
   border-top: 1px solid var(--border);
   background: var(--bg-2);
   display: flex;
@@ -963,7 +987,8 @@ table.plain {
   }
   .inspector-image {
     max-width: 100%;
-    max-height: 160px;
+    max-height: 60%;
+    min-height: 48px;
     object-fit: contain;
     background:
       linear-gradient(45deg, var(--bg-3) 25%, transparent 25%, transparent 75%, var(--bg-3) 75%),
