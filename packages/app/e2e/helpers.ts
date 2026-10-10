@@ -78,6 +78,21 @@ export async function openNewConnectionForm(page: Page, driverId: string): Promi
   await page.locator('.connection-form select').nth(1).selectOption(driverId);
 }
 
+/**
+ * Trigger something in the manager window that opens a connection, and return the connection
+ * window that appears for it, once its workspace shows the connection name.
+ */
+export async function openConnectionWindow(
+  app: ElectronApplication,
+  trigger: () => Promise<void>,
+  name: string,
+): Promise<Page> {
+  const [ws] = await Promise.all([app.waitForEvent('window'), trigger()]);
+  await ws.waitForLoadState('domcontentloaded');
+  await expectWorkspace(ws, name);
+  return ws;
+}
+
 export async function expectWorkspace(page: Page, name: string): Promise<void> {
   await expect(page.locator('.titlebar strong')).toHaveText(name, { timeout: 30_000 });
 }

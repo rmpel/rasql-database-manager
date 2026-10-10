@@ -62,6 +62,13 @@ All entries dated 2026-10-08 unless stated otherwise.
 **Decided:** Each connection opens its own window. Tables, queries, structure views and panels are tabs inside it. A connection is a self-contained unit so a single-window layout with a vertical connection sidebar can be added later as a layout option.
 **Why:** It is the Sequel Pro and TablePlus model the audience knows.
 **Rejected for now:** A single window with everything in tabs.
+**Revised 2026-10-10:** the connection manager is a long-lived window of its own rather than the
+window that turns into the first connection. Opening a connection creates a new window bound to
+that session; closing it ends the session and nothing else; closing the manager leaves open
+connections alone, and Cmd+N or the Dock brings the manager back. Window bounds are remembered per
+kind and connection windows cascade. Cmd+W closes a tab, or the window when it is the last tab;
+Close Window moved to Cmd+Shift+W because the menu accelerator used to swallow Cmd+W before the
+renderer saw it.
 **Owner:** Remon.
 
 ## D-10 Deep links may carry a password; a missing password is prompted for and stored

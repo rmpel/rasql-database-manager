@@ -28,6 +28,7 @@ const api: RasqlApi = {
   },
   session: {
     open: (req) => ipcRenderer.invoke(IPC.sessionOpen, req),
+    describe: (key) => ipcRenderer.invoke(IPC.sessionDescribe, key),
     close: (key) => ipcRenderer.invoke(IPC.sessionClose, key),
     listSchemas: (key) => ipcRenderer.invoke(IPC.sessionListSchemas, key),
     listObjects: (key, schema) => ipcRenderer.invoke(IPC.sessionListObjects, key, schema),
@@ -71,7 +72,8 @@ const api: RasqlApi = {
   app: {
     platform: process.platform,
     version: __APP_VERSION__,
-    newWindow: () => ipcRenderer.invoke(IPC.appNewWindow),
+    showLauncher: () => ipcRenderer.invoke(IPC.appShowLauncher),
+    closeWindow: () => ipcRenderer.invoke(IPC.appCloseWindow),
     onPendingConnection: (listener) =>
       subscribe<PendingConnection>(IPC.appPendingConnection, listener),
     takePendingConnection: () => ipcRenderer.invoke(IPC.appTakePending),

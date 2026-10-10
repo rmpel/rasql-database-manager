@@ -13,6 +13,7 @@ import {
   portOpen,
   runQuery,
   savedId,
+  openConnectionWindow,
 } from './helpers';
 
 test('launcher shows, SQLite file opens, table browses, query runs', async () => {
@@ -33,35 +34,44 @@ test('launcher shows, SQLite file opens, table browses, query runs', async () =>
     await page.locator('.connection-form input[placeholder=":memory:"]').fill(file);
     await page.locator('.connection-form input').first().fill('Shop (e2e)');
     await page.screenshot({ path: join(SHOTS, '02-sqlite-form.png') });
-    await page.getByRole('button', { name: 'Connect', exact: true }).click();
+    const ws = await openConnectionWindow(
+      app,
+      () => page.getByRole('button', { name: 'Connect', exact: true }).click(),
+      'Shop (e2e)',
+    );
+    await expect(ws.locator('.titlebar-meta')).toContainText('SQLite');
 
-    await expectWorkspace(page, 'Shop (e2e)');
-    await expect(page.locator('.titlebar-meta')).toContainText('SQLite');
-
-    await page.locator('.object-name', { hasText: 'products' }).click();
-    const grid = page.locator('.tab-pane:not([hidden]) .grid-table');
+    await ws.locator('.object-name', { hasText: 'products' }).click();
+    const grid = ws.locator('.tab-pane:not([hidden]) .grid-table');
     await expect(grid.locator('tbody tr').filter({ hasText: 'Widget' })).toBeVisible();
     await expect(grid.locator('.cell-null').first()).toHaveText('NULL');
     await expect(grid.locator('.cell-bytes').first()).toContainText('0x00ff');
     await expect(grid.locator('.cell-json').first()).toContainText('"color"');
-    await page.screenshot({ path: join(SHOTS, '03-sqlite-table.png') });
+    await ws.screenshot({ path: join(SHOTS, '03-sqlite-table.png') });
 
-    await page.getByRole('button', { name: 'Structure' }).click();
-    await expect(page.locator('.structure')).toContainText('CREATE TABLE products');
+    await ws.getByRole('button', { name: 'Structure' }).click();
+    await expect(ws.locator('.structure')).toContainText('CREATE TABLE products');
 
-    await page.locator('.tab-strip .tab', { hasText: 'Query 1' }).click();
+    await ws.locator('.tab-strip .tab', { hasText: 'Query 1' }).click();
     const status = await runQuery(
-      page,
+      ws,
       'SELECT id, name, price * 2 AS doubled FROM products ORDER BY id',
     );
     expect(status).toMatch(/2 rows/);
     await expect(
-      page.locator('.tab-pane:not([hidden]) .grid-table th', { hasText: 'doubled' }),
+      ws.locator('.tab-pane:not([hidden]) .grid-table th', { hasText: 'doubled' }),
     ).toBeVisible();
-    await page.screenshot({ path: join(SHOTS, '04-sqlite-query.png') });
+    await ws.screenshot({ path: join(SHOTS, '04-sqlite-query.png') });
 
-    const err = await runQuery(page, 'SELEC nonsense');
+    const err = await runQuery(ws, 'SELEC nonsense');
     expect(err).toMatch(/QUERY_FAILED/);
+
+    // The manager is a window of its own: it is still there, and closing the connection window
+    // ends only that connection.
+    await expect(page.getByRole('heading', { name: 'RaSQL' })).toBeVisible();
+    await ws.close();
+    await expect(page.getByRole('heading', { name: 'RaSQL' })).toBeVisible();
+    expect(app.windows().length).toBe(1);
   } finally {
     await app.close();
   }
@@ -82,11 +92,14 @@ test('staged edits commit in one transaction and refresh', async () => {
     await openNewConnectionForm(page, 'sqlite');
     await page.locator('.connection-form input[placeholder=":memory:"]').fill(file);
     await page.locator('.connection-form input').first().fill('Edit (e2e)');
-    await page.getByRole('button', { name: 'Connect', exact: true }).click();
-    await expectWorkspace(page, 'Edit (e2e)');
-    await page.locator('.object-name', { hasText: 'people' }).click();
+    const ws = await openConnectionWindow(
+      app,
+      () => page.getByRole('button', { name: 'Connect', exact: true }).click(),
+      'Edit (e2e)',
+    );
+    await ws.locator('.object-name', { hasText: 'people' }).click();
 
-    const pane = page.locator('.tab-pane:not([hidden])');
+    const pane = ws.locator('.tab-pane:not([hidden])');
     const grid = pane.locator('.grid-table');
     await expect(grid.locator('tbody tr').filter({ hasText: 'Ann' })).toBeVisible();
 
@@ -106,7 +119,7 @@ test('staged edits commit in one transaction and refresh', async () => {
 
     // Mark Cid for deletion by selecting the row and pressing Backspace.
     await grid.locator('tbody tr').filter({ hasText: 'Cid' }).locator('.grid-rownum').click();
-    await page.keyboard.press('Backspace');
+    await ws.keyboard.press('Backspace');
     await expect(grid.locator('tbody tr').filter({ hasText: 'Cid' })).toHaveClass(/deleted/);
 
     // Add a row and fill its name.
@@ -127,7 +140,7 @@ test('staged edits commit in one transaction and refresh', async () => {
     await expect(inserted.locator('td').nth(3)).toHaveText('23');
 
     await expect(pane.locator('.pending-badge')).toHaveText('4 pending');
-    await page.screenshot({ path: join(SHOTS, '07-staged-edits.png') });
+    await ws.screenshot({ path: join(SHOTS, '07-staged-edits.png') });
 
     // Commit: the confirm dialog is native, so answer it from the main process.
     await app.evaluate(({ dialog }) => {
@@ -146,7 +159,7 @@ test('staged edits commit in one transaction and refresh', async () => {
     await expect(
       grid.locator('tbody tr').filter({ hasText: 'Ann' }).locator('td').nth(3),
     ).toHaveText('31');
-    await page.screenshot({ path: join(SHOTS, '08-after-commit.png') });
+    await ws.screenshot({ path: join(SHOTS, '08-after-commit.png') });
 
     // The database agrees.
     const check = new DatabaseSync(file, { readOnly: true });
@@ -183,20 +196,22 @@ test('MySQL over TCP against the engine matrix', async () => {
     await form.getByLabel('Password', { exact: true }).fill('rasql');
     await form.getByLabel('Database').fill('rasql');
     // Leave "remember password" on: the saved connection must reopen without asking again.
-    await page.getByRole('button', { name: 'Connect', exact: true }).click();
-
-    await expectWorkspace(page, 'Matrix MySQL 8.0');
-    await expect(page.locator('.titlebar-meta')).toContainText(/MySQL 8\.0/);
-    await expect(page.locator('.object-name').first()).toBeVisible({ timeout: 20_000 });
+    const ws = await openConnectionWindow(
+      app,
+      () => page.getByRole('button', { name: 'Connect', exact: true }).click(),
+      'Matrix MySQL 8.0',
+    );
+    await expect(ws.locator('.titlebar-meta')).toContainText(/MySQL 8\.0/);
+    await expect(ws.locator('.object-name').first()).toBeVisible({ timeout: 20_000 });
     const status = await runQuery(
-      page,
+      ws,
       'SELECT VERSION() AS v, 18446744073709551615 AS big, CAST(-1 AS SIGNED) AS neg',
     );
     expect(status).toMatch(/1 rows/);
     await expect(
-      page.locator('.tab-pane:not([hidden]) .grid-table td', { hasText: '18446744073709551615' }),
+      ws.locator('.tab-pane:not([hidden]) .grid-table td', { hasText: '18446744073709551615' }),
     ).toBeVisible();
-    await page.screenshot({ path: join(SHOTS, '05-mysql-tcp.png') });
+    await ws.screenshot({ path: join(SHOTS, '05-mysql-tcp.png') });
   } finally {
     await app.close();
   }
@@ -204,9 +219,12 @@ test('MySQL over TCP against the engine matrix', async () => {
   // A fresh process with the same user data must reopen the saved connection from the keychain, no prompt.
   const again = await launch(userData);
   try {
-    await again.page.locator('.connection-item', { hasText: 'Matrix MySQL 8.0' }).click();
+    await openConnectionWindow(
+      again.app,
+      () => again.page.locator('.connection-item', { hasText: 'Matrix MySQL 8.0' }).click(),
+      'Matrix MySQL 8.0',
+    );
     await expect(again.page.locator('.modal')).toHaveCount(0);
-    await expectWorkspace(again.page, 'Matrix MySQL 8.0');
     expect(new Entry(KEYCHAIN_SERVICE, `rasql:${savedId(userData)}:password`).getPassword()).toBe(
       'rasql',
     );
@@ -233,12 +251,11 @@ test('LocalWP sites are discovered in the launcher and open over the socket', as
       .filter({ has: page.locator('.local-site-name', { hasText: /^wp$/ }) });
     await expect(wp.locator('.env-dot')).toHaveClass(/running/);
     // Only discovery is exercised; the install button would modify the real Local installation.
-    await wp.click();
-    await expectWorkspace(page, 'wp');
-    await expect(page.locator('.object-name', { hasText: /^wp_posts$/ })).toBeVisible({
+    const ws = await openConnectionWindow(app, () => wp.click(), 'wp');
+    await expect(ws.locator('.object-name', { hasText: /^wp_posts$/ })).toBeVisible({
       timeout: 20_000,
     });
-    await page.screenshot({ path: join(SHOTS, '09-localwp-discovery.png') });
+    await ws.screenshot({ path: join(SHOTS, '09-localwp-discovery.png') });
   } finally {
     await app.close();
   }
@@ -264,15 +281,17 @@ test('MySQL over a LocalWP Unix socket', async () => {
     await form.getByLabel('Password', { exact: true }).fill('root');
     await form.getByLabel('Database').fill('local');
     await form.getByLabel('Remember password in the system keychain').uncheck();
-    await page.getByRole('button', { name: 'Connect', exact: true }).click();
-
-    await expectWorkspace(page, 'LocalWP wp');
-    await page.locator('.object-name', { hasText: /^wp_options$/ }).click();
-    const grid = page.locator('.tab-pane:not([hidden]) .grid-table');
+    const ws = await openConnectionWindow(
+      app,
+      () => page.getByRole('button', { name: 'Connect', exact: true }).click(),
+      'LocalWP wp',
+    );
+    await ws.locator('.object-name', { hasText: /^wp_options$/ }).click();
+    const grid = ws.locator('.tab-pane:not([hidden]) .grid-table');
     await expect(grid.locator('tbody tr').filter({ hasText: 'siteurl' })).toBeVisible({
       timeout: 20_000,
     });
-    await page.screenshot({ path: join(SHOTS, '06-localwp-socket.png') });
+    await ws.screenshot({ path: join(SHOTS, '06-localwp-socket.png') });
   } finally {
     await app.close();
   }

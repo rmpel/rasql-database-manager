@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { BrowserWindow } from 'electron';
-import type { ResolvedEndpoint } from '@rasql/driver-protocol';
+import type { DriverManifest, ResolvedEndpoint, ServerInfo } from '@rasql/driver-protocol';
 import type { RemoteSession } from '@rasql/driver-sdk';
 import type {
   ConnectionDefinition,
@@ -21,6 +21,7 @@ interface LiveSession {
   session: RemoteSession;
   windowId: number;
   tunnel?: TunnelHandle;
+  manifest: DriverManifest;
 }
 
 const WELL_KNOWN = new Set([
@@ -80,7 +81,29 @@ export function throughTunnel(
 }
 
 /** Owns every open connection: one driver process per session, tied to the window that opened it. */
+export interface SessionWindowFactory {
+  createConnection(sessionKey: string, title: string): BrowserWindow;
+}
+
 export class SessionManager {
+  private windows: SessionWindowFactory | null = null;
+
+  /** The window manager is created after the session manager; wire it in once it exists. */
+  attachWindows(windows: SessionWindowFactory): void {
+    this.windows = windows;
+  }
+
+  /** What a connection window needs to render itself. */
+  describe(key: string): {
+    definition: ConnectionDefinition;
+    info: ServerInfo;
+    manifest: DriverManifest;
+  } {
+    const live = this.sessions.get(key);
+    if (!live) throw new Error('Session is not open');
+    return { definition: live.definition, info: live.session.serverInfo, manifest: live.manifest };
+  }
+
   private readonly sessions = new Map<string, LiveSession>();
   private readonly queries = new Map<string, AbortController>();
 
@@ -145,7 +168,16 @@ export class SessionManager {
       await this.credentials.set(passwordAccount(definition.id), req.password);
     }
     const key = randomUUID();
-    const live: LiveSession = { key, definition, process: proc, session, windowId: win.id };
+    // The session gets a window of its own; the manager window that asked stays as it is.
+    const owner = this.windows ? this.windows.createConnection(key, definition.name) : win;
+    const live: LiveSession = {
+      key,
+      definition,
+      process: proc,
+      session,
+      windowId: owner.id,
+      manifest,
+    };
     if (tunnel) live.tunnel = tunnel;
     this.sessions.set(key, live);
     this.log(

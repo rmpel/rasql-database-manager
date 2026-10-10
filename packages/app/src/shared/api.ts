@@ -210,6 +210,10 @@ export interface RasqlApi {
   };
   session: {
     open(req: OpenSessionRequest): Promise<OpenSessionResult>;
+    /** Everything a connection window needs; used by windows opened for an existing session. */
+    describe(
+      sessionKey: string,
+    ): Promise<{ definition: ConnectionDefinition; info: ServerInfo; manifest: DriverManifest }>;
     close(sessionKey: string): Promise<void>;
     listSchemas(sessionKey: string): Promise<SchemaInfo[]>;
     listObjects(sessionKey: string, schema: string): Promise<DbObject[]>;
@@ -260,7 +264,10 @@ export interface RasqlApi {
   app: {
     platform: string;
     version: string;
-    newWindow(): Promise<void>;
+    /** Show the connection manager window, creating it if needed. */
+    showLauncher(): Promise<void>;
+    /** Close the calling window; for a connection window that ends the session. */
+    closeWindow(): Promise<void>;
     onPendingConnection(listener: (pending: PendingConnection) => void): () => void;
     /** Ask main to replay a pending connection delivered before the renderer was listening. */
     takePendingConnection(): Promise<PendingConnection | null>;
@@ -312,7 +319,9 @@ export const IPC = {
   appFocus: 'app:focus',
   appRevealPath: 'app:revealPath',
   dialogOpenFile: 'dialog:openFile',
-  appNewWindow: 'app:newWindow',
+  appShowLauncher: 'app:showLauncher',
+  appCloseWindow: 'app:closeWindow',
+  sessionDescribe: 'session:describe',
   appPendingConnection: 'app:pendingConnection',
   appTakePending: 'app:takePending',
 } as const;

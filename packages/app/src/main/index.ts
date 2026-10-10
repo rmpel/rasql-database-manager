@@ -32,6 +32,7 @@ const history = new HistoryStore();
 const tunnels = createSshTunnelManager(log);
 const sessions = new SessionManager(credentials, log, tunnels);
 const windows = new WindowManager((windowId) => void sessions.closeForWindow(windowId));
+sessions.attachWindows(windows);
 
 const handleArgument = (arg: string): boolean => {
   const pending = parseLaunchArgument(arg);
@@ -50,7 +51,7 @@ if (!app.requestSingleInstanceLock()) {
     if (!handled) {
       const win = BrowserWindow.getAllWindows()[0];
       if (win) win.focus();
-      else windows.create();
+      else windows.showLauncher();
     }
   });
 
@@ -80,17 +81,17 @@ if (!app.requestSingleInstanceLock()) {
     registerExportIpc({ sessions });
     registerSshIpc({ credentials });
     installMenu(
-      () => windows.create(),
+      () => windows.showLauncher(),
       () => void integrateDesktop(log),
     );
 
     const launchedWith = process.argv.slice(app.isPackaged ? 1 : 2).find((a) => !a.startsWith('-'));
     const pending = launchedWith ? parseLaunchArgument(launchedWith) : null;
     if (pending) windows.deliver(pending);
-    else windows.create();
+    else windows.showLauncher();
 
     app.on('activate', () => {
-      if (BrowserWindow.getAllWindows().length === 0) windows.create();
+      if (BrowserWindow.getAllWindows().length === 0) windows.showLauncher();
     });
 
     void offerDesktopIntegration(log);

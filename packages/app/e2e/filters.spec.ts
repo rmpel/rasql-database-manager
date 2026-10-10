@@ -3,7 +3,13 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { expect, test } from '@playwright/test';
-import { SHOTS, expectWorkspace, launch, openNewConnectionForm } from './helpers';
+import {
+  SHOTS,
+  expectWorkspace,
+  launch,
+  openNewConnectionForm,
+  openConnectionWindow,
+} from './helpers';
 
 test('filters, raw WHERE, sorting and row counts on a table', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'rasql-e2e-filter-'));
@@ -24,11 +30,14 @@ test('filters, raw WHERE, sorting and row counts on a table', async () => {
     await openNewConnectionForm(page, 'sqlite');
     await page.locator('.connection-form input[placeholder=":memory:"]').fill(file);
     await page.locator('.connection-form input').first().fill('Filters (e2e)');
-    await page.getByRole('button', { name: 'Connect', exact: true }).click();
-    await expectWorkspace(page, 'Filters (e2e)');
-    await page.locator('.object-name', { hasText: 'products' }).click();
+    const ws = await openConnectionWindow(
+      app,
+      () => page.getByRole('button', { name: 'Connect', exact: true }).click(),
+      'Filters (e2e)',
+    );
+    await ws.locator('.object-name', { hasText: 'products' }).click();
 
-    const pane = page.locator('.tab-pane:not([hidden])');
+    const pane = ws.locator('.tab-pane:not([hidden])');
     const grid = pane.locator('.grid-table');
     const status = pane.locator('.toolbar-status');
     await expect(status).toContainText('60 rows loaded');
@@ -69,7 +78,7 @@ test('filters, raw WHERE, sorting and row counts on a table', async () => {
     await expect(grid.locator('tbody tr').first().locator('td').nth(3)).toHaveText('90');
     await priceHeader.click();
     await expect(priceHeader).not.toHaveClass(/sorted/);
-    await page.screenshot({ path: join(SHOTS, '10-filters-sorting.png') });
+    await ws.screenshot({ path: join(SHOTS, '10-filters-sorting.png') });
 
     // Clear brings everything back.
     await bar.getByRole('button', { name: 'Clear' }).click();

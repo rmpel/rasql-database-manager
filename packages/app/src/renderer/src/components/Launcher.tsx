@@ -78,6 +78,9 @@ export function Launcher({ drivers, pending, onPending, onOpened }: Props): Reac
       if (value.sshPassword) req.sshPassword = value.sshPassword;
       if (value.sshPassphrase) req.sshPassphrase = value.sshPassphrase;
       const result = await rasql.session.open(req);
+      // The session opened in its own window; the manager returns to its list.
+      setShowForm(false);
+      setEditing(null);
       onOpened(def, result);
     } catch (err) {
       setError(

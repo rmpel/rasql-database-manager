@@ -92,9 +92,11 @@ export function Workspace({ definition, session, onDisconnect }: Props): React.J
         e.preventDefault();
         newQueryTab();
       }
-      if ((e.metaKey || e.ctrlKey) && e.key === 'w' && tabs.length > 1) {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'w') {
         e.preventDefault();
-        closeTab(active);
+        // Close the tab; the last tab closes the window, which ends the session.
+        if (tabs.length > 1) closeTab(active);
+        else void rasql.app.closeWindow();
       }
     };
     window.addEventListener('keydown', onKey);
@@ -121,7 +123,12 @@ export function Workspace({ definition, session, onDisconnect }: Props): React.J
         <button onClick={newQueryTab} title="New query tab (⌘T)">
           + Query
         </button>
-        <button onClick={() => void disconnect()}>Disconnect</button>
+        <button onClick={() => void rasql.app.showLauncher()} title="Connection manager (⌘N)">
+          Connections
+        </button>
+        <button onClick={() => void disconnect()} title="Close this connection and its window">
+          Disconnect
+        </button>
       </header>
       <div className="workspace-body">
         <Sidebar

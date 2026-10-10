@@ -1,13 +1,13 @@
 import { app, Menu, shell, type MenuItemConstructorOptions } from 'electron';
 
-export function installMenu(onNewWindow: () => void, onIntegrateDesktop: () => void): void {
+export function installMenu(onShowLauncher: () => void, onIntegrateDesktop: () => void): void {
   const isMac = process.platform === 'darwin';
   const template: MenuItemConstructorOptions[] = [
     ...(isMac ? [{ role: 'appMenu' as const }] : []),
     {
       label: 'File',
       submenu: [
-        { label: 'New Connection Window', accelerator: 'CmdOrCtrl+N', click: onNewWindow },
+        { label: 'Connections…', accelerator: 'CmdOrCtrl+N', click: onShowLauncher },
         ...(process.platform === 'linux'
           ? [
               { type: 'separator' as const },
@@ -15,7 +15,9 @@ export function installMenu(onNewWindow: () => void, onIntegrateDesktop: () => v
             ]
           : []),
         { type: 'separator' },
-        isMac ? { role: 'close' } : { role: 'quit' },
+        // Cmd+W belongs to the renderer: close tab, or the window when it is the last tab.
+        { role: 'close', accelerator: 'CmdOrCtrl+Shift+W' },
+        ...(isMac ? [] : [{ role: 'quit' as const }]),
       ],
     },
     { role: 'editMenu' },

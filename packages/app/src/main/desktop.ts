@@ -1,23 +1,8 @@
 import { app, dialog, BrowserWindow } from 'electron';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
+import { readSettings, writeSettings } from './settings';
 import { desktopIntegrationStatus, installDesktopIntegration } from './integrations/linux-desktop';
-
-const settingsFile = (): string => join(app.getPath('userData'), 'settings.json');
-
-function readSettings(): Record<string, unknown> {
-  try {
-    return JSON.parse(readFileSync(settingsFile(), 'utf8')) as Record<string, unknown>;
-  } catch {
-    return {};
-  }
-}
-
-function writeSettings(patch: Record<string, unknown>): void {
-  const next = { ...readSettings(), ...patch };
-  mkdirSync(dirname(settingsFile()), { recursive: true });
-  writeFileSync(settingsFile(), JSON.stringify(next, null, 2));
-}
 
 const bundledIcon = (): string | null => {
   const p = app.isPackaged

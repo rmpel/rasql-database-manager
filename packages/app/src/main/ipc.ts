@@ -97,6 +97,7 @@ export function registerIpc(deps: {
 
   ipcMain.handle(IPC.sessionOpen, (e, req: OpenSessionRequest) => sessions.open(windowOf(e), req));
   ipcMain.handle(IPC.sessionClose, (_e, key: string) => sessions.close(key));
+  ipcMain.handle(IPC.sessionDescribe, (_e, key: string) => sessions.describe(key));
   ipcMain.handle(IPC.sessionListSchemas, (_e, key: string) => sessions.get(key).listSchemas());
   ipcMain.handle(IPC.sessionListObjects, (_e, key: string, schema: string) =>
     sessions.get(key).listObjects(schema),
@@ -215,8 +216,11 @@ export function registerIpc(deps: {
     return result.canceled ? null : (result.filePaths[0] ?? null);
   });
 
-  ipcMain.handle(IPC.appNewWindow, () => {
-    windows.create();
+  ipcMain.handle(IPC.appShowLauncher, () => {
+    windows.showLauncher();
+  });
+  ipcMain.handle(IPC.appCloseWindow, (e) => {
+    windowOf(e).close();
   });
   ipcMain.handle(IPC.appTakePending, (e) => windows.takePending(windowOf(e).id));
   ipcMain.handle(IPC.appRevealPath, (_e, path: string) => shell.showItemInFolder(path));
