@@ -1011,3 +1011,125 @@ table.plain {
     }
   }
 }
+
+// PHP serialized tree ----------------------------------------------------
+.php-tree {
+  font-family: var(--mono);
+  font-size: 12px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 6px;
+  overflow: auto;
+  flex: 1;
+  min-height: 0;
+  .php-children {
+    margin-left: 18px;
+    border-left: 1px dotted var(--border);
+    padding-left: 6px;
+  }
+  .php-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 24px;
+    &:hover .php-remove {
+      opacity: 1;
+    }
+  }
+  .php-toggle {
+    width: 16px;
+    padding: 0;
+    background: transparent;
+    border: none;
+    color: var(--fg-2);
+    text-align: center;
+    flex: 0 0 16px;
+  }
+  .php-key {
+    display: inline-flex;
+    gap: 3px;
+    align-items: center;
+    input {
+      width: 120px;
+      padding: 1px 5px;
+      font: inherit;
+    }
+    .php-declaring {
+      width: 80px;
+      color: var(--fg-2);
+    }
+  }
+  .php-key-type,
+  .php-retype {
+    font-size: 10px;
+    padding: 0 2px;
+    color: var(--fg-2);
+  }
+  .php-type {
+    font-size: 10px;
+    padding: 1px 5px;
+    border-radius: 8px;
+    background: var(--bg-3);
+    color: var(--fg-2);
+    white-space: nowrap;
+  }
+  .php-type-object {
+    background: color-mix(in srgb, var(--accent) 18%, var(--bg-3));
+  }
+  .php-value {
+    padding: 1px 5px;
+    font: inherit;
+    &.php-string {
+      flex: 1;
+      min-width: 140px;
+    }
+    &.php-number {
+      width: 110px;
+    }
+  }
+  .php-class {
+    width: 140px;
+    padding: 1px 5px;
+    font: inherit;
+    color: var(--accent);
+  }
+  .php-null,
+  .php-muted {
+    color: var(--null);
+    font-style: italic;
+  }
+  .php-remove {
+    opacity: 0;
+    background: transparent;
+    border: none;
+    color: var(--fg-2);
+    padding: 0 4px;
+    &:hover {
+      color: var(--danger);
+    }
+  }
+  .php-add {
+    opacity: 0.8;
+    input {
+      width: 110px;
+      padding: 1px 5px;
+      font: inherit;
+    }
+  }
+}
+
+.segmented {
+  display: inline-flex;
+  button {
+    border-radius: 0;
+    margin-left: -1px;
+  }
+  button:first-child {
+    border-radius: var(--radius) 0 0 var(--radius);
+    margin-left: 0;
+  }
+  button:last-child {
+    border-radius: 0 var(--radius) var(--radius) 0;
+  }
+}

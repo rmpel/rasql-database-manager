@@ -4,6 +4,15 @@ import { rasql } from '../api';
 import { formatSize, hexDumpLines, toBase64, toHex } from '../lib/bytes';
 import { detectBase64, detectBytes, type Detection } from '../lib/detect';
 import { parseEditText } from '../lib/edit-values';
+import {
+  phpTypeLabel,
+  serializePhp,
+  serializePhpBytes,
+  toAnnotatedJson,
+  tryParsePhpSerialized,
+  type PhpValue,
+} from '../lib/php-serialize';
+import { PhpTree } from './PhpTree';
 
 interface Props {
   /** Identifies the cell; the inspector resets its messages when it changes. */
@@ -304,12 +313,33 @@ function TextView({
   setMessage: (m: string | null) => void;
 }): React.JSX.Element {
   const [draft, setDraft] = useState(text);
+  const php = useMemo(() => (json ? null : tryParsePhpSerialized(text)), [text, json]);
+  const [tree, setTree] = useState<PhpValue | null>(php);
+  const [phpMode, setPhpMode] = useState<'tree' | 'json' | 'raw'>('tree');
   // Follow the stored text when it changes underneath us (refresh, staged edit), without an effect.
   const [prevText, setPrevText] = useState(text);
   if (prevText !== text) {
     setPrevText(text);
     setDraft(text);
+    setTree(php);
   }
+  const serializedView = php !== null && phpMode !== 'raw';
+  const treeChanged = php !== null && tree !== null && tree !== php;
+
+  const stageTree = (): void => {
+    if (!tree) return;
+    const out = serializePhp(tree);
+    // A string kept as raw non-UTF-8 bytes cannot travel through a text value without changing.
+    const exact = new TextEncoder().encode(out);
+    const bytes = serializePhpBytes(tree);
+    if (exact.length !== bytes.length || exact.some((b, i) => b !== bytes[i])) {
+      setMessage(
+        'This value holds strings that are not valid UTF-8; staging it as text would change those bytes.',
+      );
+      return;
+    }
+    onStage(V.text(out));
+  };
   const [pretty, setPretty] = useState(json);
   const base64 = useMemo(() => (json ? null : detectBase64(text)), [text, json]);
   const [showDecoded, setShowDecoded] = useState(false);
@@ -348,6 +378,7 @@ function TextView({
           {base64
             ? ` · looks like base64-encoded ${base64.detection.label} (${formatSize(base64.bytes.length)})`
             : ''}
+          {php ? ` · PHP serialized ${phpTypeLabel(php)}` : ''}
         </span>
         <span className="spacer" />
         {json && (
@@ -355,12 +386,33 @@ function TextView({
             Pretty
           </button>
         )}
+        {php && (
+          <span className="segmented">
+            <button
+              className={phpMode === 'tree' ? 'active' : ''}
+              onClick={() => setPhpMode('tree')}
+              title="Edit as a tree; types, class names and visibility are kept"
+            >
+              Serialized
+            </button>
+            <button
+              className={phpMode === 'json' ? 'active' : ''}
+              onClick={() => setPhpMode('json')}
+              title="Read-only JSON view; # marks protected, - marks private, __class names the class"
+            >
+              JSON view
+            </button>
+            <button className={phpMode === 'raw' ? 'active' : ''} onClick={() => setPhpMode('raw')}>
+              Raw
+            </button>
+          </span>
+        )}
         {base64 && (
           <button className={showDecoded ? 'active' : ''} onClick={() => setShowDecoded((s) => !s)}>
             Decoded
           </button>
         )}
-        {!json && !base64 && (
+        {!json && !base64 && !serializedView && (
           <select
             value={charset ?? ''}
             onChange={(e) => setCharset(e.target.value || null)}
@@ -383,7 +435,19 @@ function TextView({
         {editable && base64 && (
           <ReplaceFromFile column={column} onStage={onStage} setMessage={setMessage} asBase64 />
         )}
-        {editable && !base64 && draft !== text && (
+        {editable && serializedView && treeChanged && (
+          <>
+            <button onClick={() => setTree(php)}>Revert</button>
+            <button
+              className="primary"
+              onClick={stageTree}
+              title="Stage the re-serialized value; every length and count is recomputed"
+            >
+              Stage
+            </button>
+          </>
+        )}
+        {editable && !base64 && !serializedView && draft !== text && (
           <button className="primary" onClick={stage}>
             Stage
           </button>
@@ -400,7 +464,13 @@ function TextView({
           <HexDump bytes={base64.bytes} />
         </>
       )}
-      {!charset && !showDecoded && (
+      {!charset && serializedView && tree && phpMode === 'tree' && (
+        <PhpTree value={tree} editable={editable} onChange={setTree} />
+      )}
+      {!charset && serializedView && tree && phpMode === 'json' && (
+        <pre className="inspector-text">{JSON.stringify(toAnnotatedJson(tree), null, 2)}</pre>
+      )}
+      {!charset && !showDecoded && !serializedView && (
         <textarea
           className="inspector-editor"
           value={shown}

@@ -241,3 +241,22 @@ covers every format without RaSQL growing editors. Detection runs in the rendere
 driver already delivers typed, which is what principle 4 bought.
 **Owner:** Remon approved the design; Claude built it with one agent for the plumbing; dated
 2026-10-10.
+
+## D-33 PHP serialized data is edited as a lossless tree, never through JSON or YAML
+
+**Decided:** Text that parses completely as PHP `serialize()` output opens in the inspector as a
+tree. Every node shows its PHP type; array keys keep int versus string; objects keep their class
+name and each property its visibility, with the declaring class for private ones; enums,
+references and custom-serialized classes are shown and written back verbatim. Scalars, keys, class
+names and visibility are editable, entries can be added and removed, and Stage re-serializes the
+tree, recomputing every byte length and count. A read-only JSON view marks the class (`__class`),
+protected (`#name`) and private (`-Class::name`) members; a Raw view shows the text as stored.
+Parsing is byte-based, so lengths are UTF-8 byte counts, and strings that are not valid UTF-8 keep
+their exact bytes. SQL text literals now write NUL safely: `\0` where backslash escapes apply
+(MySQL, MariaDB), `'a' || char(0) || 'b'` elsewhere (SQLite reads SQL as a C string).
+**Why:** Converting to JSON or YAML for editing drops what PHP needs to unserialize the value:
+object classes, visibility markers, int versus string keys, int versus bool. A tree over a typed
+model keeps all of it, and the same parser will drive serialization-aware search and replace in
+Phase 2. The NUL fix was found by the end-to-end test: protected properties contain NUL bytes.
+**Owner:** Remon set the requirement that type markers must not be lost; Claude built it with one
+agent for the parser; dated 2026-10-10.

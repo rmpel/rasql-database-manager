@@ -407,6 +407,16 @@ describe('formatLiteral', () => {
     expect(formatLiteral(V.bytes(new Uint8Array([0, 171])), s)).toBe(`X'00ab'`);
     expect(formatLiteral(V.bit(new Uint8Array([5]), 3), s)).toBe(`b'101'`);
     expect(formatLiteral(V.set(['a', 'b']), s)).toBe(`'a,b'`);
+    expect(formatLiteral(V.text('a\0b'), s)).toBe(`'a\\0b'`);
+    const plain = {
+      hex: 'x-quote' as const,
+      booleans: 'numeric' as const,
+      escapeBackslashes: false,
+    };
+    expect(formatLiteral(V.text("\0*\0x'"), plain)).toBe(
+      `('' || char(0) || '*' || char(0) || 'x''')`,
+    );
+    expect(formatLiteral(V.text('no nul'), plain)).toBe(`'no nul'`);
     expect(() => formatLiteral(V.float(Number.NaN), s)).toThrow(DriverError);
   });
 });

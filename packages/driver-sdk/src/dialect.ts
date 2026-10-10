@@ -145,14 +145,27 @@ export interface LiteralStyle {
   booleans: 'keyword' | 'numeric';
   /** Backslash escapes inside strings must be doubled (MySQL default mode). */
   escapeBackslashes: boolean;
+  /**
+   * How to write a NUL character, for engines without backslash escapes. A raw NUL ends the
+   * statement for engines that read SQL as a C string (SQLite), so the literal is split and
+   * joined with this expression: `('a' || char(0) || 'b')`. Defaults to `char(0)` with `||`.
+   */
+  nul?: { expression: string; concat: string };
 }
 
 /** A reasonable literal printer. Drivers wrap it or replace it. */
 export function formatLiteral(v: Value, style: LiteralStyle): string {
   const str = (s: string): string => {
     let out = escapeSingleQuotes(s);
-    if (style.escapeBackslashes) out = out.replace(/\\/g, '\\\\');
-    return `'${out}'`;
+    if (style.escapeBackslashes) {
+      // Backslashes are escapes here, so NUL has one of its own.
+      out = out.replace(/\\/g, '\\\\').replace(/\0/g, '\\0');
+      return `'${out}'`;
+    }
+    if (!out.includes('\0')) return `'${out}'`;
+    const nul = style.nul ?? { expression: 'char(0)', concat: '||' };
+    const parts = out.split('\0').map((p) => `'${p}'`);
+    return `(${parts.join(` ${nul.concat} ${nul.expression} ${nul.concat} `)})`;
   };
   const hex = (b: Uint8Array): string =>
     style.hex === '0x' ? `0x${bytesToHex(b)}` : `X'${bytesToHex(b)}'`;
