@@ -1,7 +1,7 @@
 {
   "name": "@rasql/app",
   "productName": "RaSQL",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "RaSQL: a fast, keyboard-first database manager for web developers",
   "license": "GPL-3.0-or-later",
   "private": true,
