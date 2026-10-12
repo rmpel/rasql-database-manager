@@ -9,6 +9,7 @@ A fast, keyboard-first database manager for web developers. Free, open source, M
 | [docs/GOAL.md](docs/GOAL.md)                 | Why this exists, who it is for, what ships in which phase, what we will not build   |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Process model, driver protocol, value model, one-click open, MCP, security          |
 | [docs/DECISIONS.md](docs/DECISIONS.md)       | Every decision taken so far, with the reasoning, so nobody re-argues it by accident |
+| [MCP.md](MCP.md)                             | What AI agents will be able to do through MCP, and how the user stays in control    |
 
 ## In one paragraph
 

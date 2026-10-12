@@ -35,7 +35,7 @@ These are commitments, not aspirations. A change that violates one needs a very 
 3. **Production looks different.** Connections carry a color and an environment label. Production connections can be flagged read-only. Destructive statements against a flagged connection require confirmation.
 4. **Values are typed until the last moment.** The driver hands the UI typed values, never pre-rendered strings. Bytes stay bytes, charsets stay known, JSON stays JSON. This principle exists because its violation sank the previous attempt.
 5. **Secrets live in the keychain.** Passwords are never written to a plain file, a log, or a crash report. The URL scheme accepts credentials for convenience, and they go straight to the credential store.
-6. **The agent gets nothing by default.** MCP clients see no connections until the user grants one, per connection, with a level and a lifetime.
+6. **The agent gets nothing by default.** MCP clients see no connections until the user opens one up, per connection, as read-only, ask-before-writing or read-write. Destructive changes always ask.
 7. **No account, no telemetry, no cloud dependency.** The app works fully offline. Updates are checked against GitHub Releases and nothing else.
 8. **Engines are plug-ins.** The core knows nothing about MySQL. If adding an engine means touching the core, the driver protocol is wrong and gets fixed first.
 9. **Built for every OS, polished on Mac first.** Nothing in the code may assume macOS, but the macOS build is the one that gets tested by hand before a release.

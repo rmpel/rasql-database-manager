@@ -290,37 +290,40 @@ RaSQL is an MCP server. It is not an MCP client and has no built-in chat.
 
 ### 8.2 Permission model
 
-Principle 6 in GOAL.md made concrete.
+Principle 6 in GOAL.md made concrete. [MCP.md](../MCP.md) has the full outline; decision D-39 records it.
 
 - Every MCP client authenticates with an identity: the name it announces plus a token the app issues on first contact. The user approves the first contact in the app.
-- A client sees **no connections** until the user grants access. `list_connections` returns only connections granted to that client.
-- A grant is per client, per connection, with a **level** and a **lifetime**:
-  - level: `read` or `write`;
-  - lifetime: this app session, a duration, or until revoked.
-- Grants are made in the app, never over MCP. The `request_access` tool creates a pending request that appears in the app's UI; the human clicks.
-- Connections flagged `production` or `readOnly` cannot be granted `write`. Grants on production connections are never "until revoked"; they expire with the session at most.
-- `read` is enforced twice: the session is put in read-only mode where the engine supports it, and every statement is classified by the dialect and refused if it is not `read`.
-- `write` still does not execute directly. `propose_write` returns a proposal id, the statement appears in the app with its EXPLAIN and affected-row estimate, and the human approves or rejects. The tool call blocks until then or times out.
-- Every MCP action is written to an audit log visible in the app, per client, per connection.
+- Every connection has one **MCP setting**, shared by all approved clients and set in the app, never over MCP:
+  - `Hidden`: the connection does not exist for agents. This is the default for connections the user creates.
+  - `Read-only`: reads only; write attempts are refused without a prompt.
+  - `Ask`: every commit shows a prompt with Once, This session, Always, Deny and Review. Always switches the setting to `Read/Write`.
+  - `Read/Write`: commits run without a prompt.
+- A connection flagged `readOnly` offers only `Hidden` and `Read-only`. That flag, not a separate MCP rule, is what protects production.
+- Reads are enforced twice: the session is put in read-only mode where the engine supports it, and every statement is classified by the dialect and refused if it is not `read`.
+- Writes arrive as change sets. Each statement is sorted as safe by shape, safe if the data fits (checked with a read query, then run under strict mode), or destructive. Destructive changes always ask, even under This session or `Read/Write`.
+- An agent works only in the database named in the connection; statements naming another database are refused.
+- Agents may create connections, including a password that goes straight to the keychain, after a one-click confirmation. They may rename, group, color or favorite a connection. They may never read secrets, delete a connection, change its `readOnly` flag or MCP setting, or change its host, port, socket, user, SSH settings or database name.
+- Every MCP action is written to an audit log visible in the app, per client, per connection, including refused actions and commits that ran without a prompt.
 - Credentials are never exposed over MCP under any circumstance. There is no tool that returns them.
 
 ### 8.3 Tools
 
-| Tool               | Level needed | Returns                                                                                                            |
-| ------------------ | ------------ | ------------------------------------------------------------------------------------------------------------------ |
-| `list_connections` | none         | Names, drivers, environments and granted levels of connections this client may see. Never hosts, users or secrets. |
-| `request_access`   | none         | Creates a pending request `{ connection, level, lifetime }`; returns the request id and status.                    |
-| `connect`          | read         | Opens the session if not open; returns engine and version.                                                         |
-| `list_schemas`     | read         |                                                                                                                    |
-| `list_tables`      | read         | Tables and views with row estimates and comments.                                                                  |
-| `describe_table`   | read         | Columns, indexes, foreign keys, DDL.                                                                               |
-| `sample_rows`      | read         | First N rows, typed, with a hard cap.                                                                              |
-| `query`            | read         | Runs a statement classified `read`; streams up to a configurable row cap; refuses anything else.                   |
-| `explain`          | read         | Execution plan.                                                                                                    |
-| `propose_write`    | write        | Submits a statement for human approval; returns the proposal id, then the outcome.                                 |
-| `search_schema`    | read         | Finds tables and columns by name across the connection.                                                            |
+| Tool                | Level needed | Returns                                                                                                              |
+| ------------------- | ------------ | -------------------------------------------------------------------------------------------------------------------- |
+| `list_connections`  | none         | Names, groups, drivers, environments and settings of connections that are not Hidden. Never hosts, users or secrets. |
+| `create_connection` | none         | Adds a connection after the user confirms; any password goes to the keychain. Starts at `Ask`.                       |
+| `update_connection` | none         | Changes name, group, favorite or color.                                                                              |
+| `list_databases`    | read         |                                                                                                                      |
+| `list_tables`       | read         | Tables and views with row estimates and comments.                                                                    |
+| `describe_table`    | read         | Columns, indexes, foreign keys, DDL.                                                                                 |
+| `search_schema`     | read         | Finds tables and columns by name in the connection's database.                                                       |
+| `sample_rows`       | read         | First N rows, typed, with a hard cap.                                                                                |
+| `query`             | read         | Runs a statement classified `read`; streams up to a configurable row cap; refuses anything else.                     |
+| `explain`           | read         | Execution plan.                                                                                                      |
+| `commit_changes`    | write        | Submits a change set; it runs per the MCP setting, after a prompt where needed, and returns the outcome.             |
+| `change_status`     | write        | Outcome of a change set, with the user's note if it was denied.                                                      |
 
-Resources: each granted connection exposes its schema as an MCP resource so clients can pull it into context without a tool call.
+Resources: each visible connection exposes its database's schema as an MCP resource so clients can pull it into context without a tool call.
 
 ## 9. Security model, summarized
 
@@ -329,7 +332,7 @@ Resources: each granted connection exposes its schema as an MCP resource so clie
 - Drivers are isolated processes; a malicious or buggy driver cannot read another connection's data or the keychain.
 - Third-party drivers are installed explicitly by the user from a file or a URL, with the manifest shown before installation. There is no automatic driver marketplace.
 - Host keys are verified. TLS certificates are verified by default, with an explicit per-connection override that is shown in the connection's color bar.
-- The MCP surface is deny-by-default, human-in-the-loop for writes, and audited.
+- The MCP surface is hidden by default, writes follow a per-connection setting the user controls, destructive changes always need a human, and everything is audited.
 - Crash reports, if ever added, are opt-in and scrub connection details.
 
 ## 10. Testing

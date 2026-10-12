@@ -52,7 +52,7 @@ All entries dated 2026-10-08 unless stated otherwise.
 
 ## D-08 MCP: deny by default, grants per connection, writes approved by a human
 
-**Decided:** RaSQL is an MCP server. Clients see no connections until the user grants one in the app, per client, per connection, with a level (read or write) and a lifetime. Production and read-only connections cannot be granted write. Write statements are proposals that a human approves in the UI. Every action is audited. Credentials are never exposed over MCP.
+**Decided:** RaSQL is an MCP server. Clients see no connections until the user grants one in the app, per client, per connection, with a level (read or write) and a lifetime. Production and read-only connections cannot be granted write. Write statements are proposals that a human approves in the UI. Every action is audited. Credentials are never exposed over MCP. (Amended 2026-10-12: access is now one MCP setting per connection, and writes can be allowed without a prompt; see D-39.)
 **Why:** The author may have a production connection stored next to a local one. An agent must not be able to read production because it was allowed to read local.
 **Rejected:** Read-only access to all connections by default. A per-connection "free write" switch.
 **Owner:** Remon.
@@ -352,3 +352,27 @@ fail Gatekeeper since 2026-09-01; notarization needs a paid Apple account (D-12)
 held to that rule and stays fully under the project's control. Bypassing Gatekeeper for every user
 is a decision the user should make, not the installer.
 **Owner:** Remon chose a tap without signing; Claude built it; dated 2026-10-10.
+
+## D-39 MCP access is one setting per connection: Hidden, Read-only, Ask or Read/Write
+
+**Decided:** Every connection has one MCP setting, shared by all approved clients: Hidden (the
+default), Read-only, Ask or Read/Write. A connection flagged read-only offers only Hidden and
+Read-only, and that flag is what protects production. Under Ask, each commit shows a prompt with
+Once, This session, Always, Deny and Review; Always switches the setting to Read/Write. Changes are
+sorted as safe by shape, safe if the data fits (checked first, then run in strict mode), or
+destructive; destructive changes always ask, even under This session or Read/Write. An agent works
+only in the database named in the connection. Agents may create connections, including the
+password, after a one-click confirmation, but may never read secrets, change a connection's
+read-only flag or MCP setting, delete it, or change where it points. The full outline is in
+`MCP.md`.
+**Why:** The user already decides per connection whether they themselves may write; the agent's
+access belongs next to that, not in a separate grant system per client. Asking on every commit
+gets in the way of routine work such as widening all INT columns, so the user can let safe changes
+through while anything that can lose data still needs a click. Changing a stored connection's host
+would send its saved password to that host, and changing its database would get around the
+one-database rule, so both are refused.
+**Rejected:** Grants per client with lifetimes (D-08's original form): more to manage for a
+single-user desktop app. Write access on production through MCP: the read-only flag already says
+nobody writes there.
+**Owner:** Remon decided the settings and the prompt; Claude proposed Hidden, the destructive
+rules and the connection limits, which Remon accepted; dated 2026-10-12.
