@@ -54,6 +54,19 @@ test('query editor: typing, running the statement under the cursor, history and 
         .first(),
     ).toBeVisible();
 
+    // A double-clicked word shows its selection: the active line tint must not cover it.
+    await editor
+      .locator('span')
+      .filter({ hasText: /^SELECT$/ })
+      .last()
+      .dblclick();
+    await expect(pane.locator('.cm-selectionBackground').first()).toBeVisible();
+    const activeLineBg = await pane
+      .locator('.cm-activeLine')
+      .evaluate((el) => el.ownerDocument.defaultView!.getComputedStyle(el).backgroundColor);
+    expect(activeLineBg).toMatch(/^rgba\(.*, 0(\.\d+)?\)$/);
+    await ws.keyboard.press(`${mod}+End`);
+
     // History records the run and loads it back.
     await pane.getByRole('button', { name: 'History' }).click();
     const history = pane.locator('.history-panel');

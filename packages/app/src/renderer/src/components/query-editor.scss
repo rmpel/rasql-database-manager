@@ -11,7 +11,8 @@
   --cm-null: #9aa0ab;
   --cm-selection: #cfe0ff;
   --cm-selection-match: #e6eeff;
-  --cm-active-line: #f6f7f9;
+  // Translucent: CodeMirror draws the selection behind the lines, so an opaque tint would hide it.
+  --cm-active-line: rgba(28, 30, 36, 0.04);
   --cm-bracket: #e0e8ff;
   --cm-search: #fff3b0;
 }
@@ -29,7 +30,7 @@
     --cm-null: #6b7280;
     --cm-selection: #2f4470;
     --cm-selection-match: #2a3348;
-    --cm-active-line: #22252c;
+    --cm-active-line: rgba(255, 255, 255, 0.03);
     --cm-bracket: #33415c;
     --cm-search: #5a4b12;
   }
