@@ -34,6 +34,35 @@ describe('deep links', () => {
     expect(p?.password).toBe('s3cret');
   });
 
+  it('parses postgres://, postgresql://, mssql:// and sqlserver:// urls', () => {
+    expect(parseLaunchArgument('postgres://app:s%40cret@db.test:6543/shop?name=Shop')).toEqual({
+      definition: {
+        driver: 'postgres',
+        transport: 'tcp',
+        host: 'db.test',
+        port: 6543,
+        user: 'app',
+        database: 'shop',
+        name: 'Shop',
+        source: 'deep-link',
+      },
+      autoConnect: true,
+      password: 's@cret',
+    });
+    expect(parseUrl('postgresql:///wp?host=/var/run/postgresql')?.definition).toMatchObject({
+      driver: 'postgres',
+      transport: 'socket',
+      socketPath: '/var/run/postgresql',
+    });
+    for (const scheme of ['mssql', 'sqlserver'])
+      expect(parseUrl(`${scheme}://sa@sql.test:1433/wordpress`)?.definition).toMatchObject({
+        driver: 'mssql',
+        host: 'sql.test',
+        port: 1433,
+        database: 'wordpress',
+      });
+  });
+
   it('turns a sqlite file path into a pending connection', () => {
     expect(parseLaunchArgument('/tmp/app.sqlite')?.definition).toMatchObject({
       driver: 'sqlite',

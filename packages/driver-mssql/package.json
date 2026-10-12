@@ -1,0 +1,32 @@
+{
+  "name": "@rasql/driver-mssql",
+  "version": "0.1.0",
+  "description": "RaSQL Microsoft SQL Server driver on tedious",
+  "license": "GPL-3.0-or-later",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./manifest": {
+      "types": "./dist/manifest.d.ts",
+      "default": "./dist/manifest.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@rasql/driver-protocol": "workspace:*",
+    "@rasql/driver-sdk": "workspace:*",
+    "tedious": "^20.3.6"
+  }
+}

@@ -2,7 +2,7 @@
 
 A fast, keyboard-first database manager for web developers. Free, open source, Mac first, built for every OS.
 
-**Status: Phase 0, foundation.** The driver protocol, SDK, SQLite and MySQL/MariaDB drivers and an Electron shell that opens, browses and queries databases exist and are tested. It is a scaffold, not a daily driver yet. See `docs/GOAL.md` for the phases.
+**Status: Phase 0, foundation.** The driver protocol, SDK, SQLite, MySQL/MariaDB, PostgreSQL and SQL Server drivers and an Electron shell that opens, browses and queries databases exist and are tested. It is a scaffold, not a daily driver yet. See `docs/GOAL.md` for the phases.
 
 | Document                                     | What it answers                                                                     |
 | -------------------------------------------- | ----------------------------------------------------------------------------------- |
@@ -41,7 +41,7 @@ pnpm install:linux     # same for Linux: AppImage under ~/.local/bin plus a desk
 pnpm install:windows   # same for Windows: silent per-user NSIS install, from PowerShell
 ```
 
-Layout: `packages/driver-protocol` and `packages/driver-sdk` are what a driver author needs (MIT), `packages/driver-sqlite` and `packages/driver-mysql` are the bundled drivers, `packages/app` is the Electron application. See `CONTRIBUTING.md`.
+Layout: `packages/driver-protocol` and `packages/driver-sdk` are what a driver author needs (MIT), `packages/driver-sqlite`, `packages/driver-mysql`, `packages/driver-postgres` and `packages/driver-mssql` are the bundled drivers, `packages/app` is the Electron application. See `CONTRIBUTING.md`.
 
 ## License
 

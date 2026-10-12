@@ -34,7 +34,9 @@ import {
 import { highlightSelectionMatches, searchKeymap } from '@codemirror/search';
 import {
   MariaSQL,
+  MSSQL,
   MySQL,
+  PostgreSQL,
   SQLite,
   StandardSQL,
   keywordCompletionSource,
@@ -42,7 +44,7 @@ import {
   type SQLDialect,
 } from '@codemirror/lang-sql';
 import { tags } from '@lezer/highlight';
-import { splitStatements, statementAt, type Statement } from '../lib/sql-split';
+import { flavorOf, splitStatements, statementAt, type Statement } from '../lib/sql-split';
 
 export interface RunTarget {
   sql: string;
@@ -89,6 +91,11 @@ function dialectFor(engine: string): SQLDialect {
       return MySQL;
     case 'sqlite':
       return SQLite;
+    case 'postgres':
+      return PostgreSQL;
+    case 'mssql':
+    case 'azure-sql':
+      return MSSQL;
     default:
       return StandardSQL;
   }
@@ -251,10 +258,11 @@ export const SqlEditor = forwardRef<SqlEditorHandle, Props>(function SqlEditor(
           return text ? { sql: text, source: { kind: 'selection' } } : null;
         }
         const doc = v.state.doc.toString();
-        const all = splitStatements(doc);
+        const flavor = flavorOf(engine);
+        const all = splitStatements(doc, flavor);
         if (all.length === 0) return null;
         if (all.length === 1) return { sql: (all[0] as Statement).sql, source: { kind: 'all' } };
-        const st = statementAt(doc, sel.head);
+        const st = statementAt(doc, sel.head, flavor);
         if (!st) return null;
         return {
           sql: st.sql,
@@ -277,7 +285,7 @@ export const SqlEditor = forwardRef<SqlEditorHandle, Props>(function SqlEditor(
       },
       focus: () => view.current?.focus(),
     }),
-    [],
+    [engine],
   );
 
   return <div className="sql-editor-host" ref={host} />;

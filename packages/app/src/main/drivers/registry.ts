@@ -1,8 +1,13 @@
 import type { DriverManifest } from '@rasql/driver-protocol';
+// Manifests only: each driver's library loads in its own utility process, never in main.
 import { manifest as sqliteManifest } from '@rasql/driver-sqlite';
-import { manifest as mysqlManifest } from '@rasql/driver-mysql';
+import { manifest as mysqlManifest } from '@rasql/driver-mysql/manifest';
+import { manifest as postgresManifest } from '@rasql/driver-postgres/manifest';
+import { manifest as mssqlManifest } from '@rasql/driver-mssql/manifest';
 import sqliteEntry from './sqlite-entry?modulePath';
 import mysqlEntry from './mysql-entry?modulePath';
+import postgresEntry from './postgres-entry?modulePath';
+import mssqlEntry from './mssql-entry?modulePath';
 
 export interface BuiltinDriver {
   manifest: DriverManifest;
@@ -13,6 +18,8 @@ export interface BuiltinDriver {
 const builtins: BuiltinDriver[] = [
   { manifest: sqliteManifest, entry: sqliteEntry },
   { manifest: mysqlManifest, entry: mysqlEntry },
+  { manifest: postgresManifest, entry: postgresEntry },
+  { manifest: mssqlManifest, entry: mssqlEntry },
 ];
 
 export function listDrivers(): DriverManifest[] {

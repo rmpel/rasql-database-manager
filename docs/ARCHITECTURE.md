@@ -4,21 +4,22 @@ Last revised 2026-10-08. This describes the shape of the system before any of it
 
 ## 1. Stack
 
-| Concern                | Choice                                                                        | Why                                                                                                                     |
-| ---------------------- | ----------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| Shell                  | Electron                                                                      | Identical rendering on every OS; one language for app, drivers, LocalWP add-on and MCP server; largest contributor pool |
-| Language               | TypeScript, strict mode, everywhere                                           | See above                                                                                                               |
-| UI                     | React                                                                         | House style; mature ecosystem for grids and editors                                                                     |
-| Styling                | SCSS modules, system fonts, native light and dark mode                        | No design system dependency                                                                                             |
-| Data grid              | Decided by a Phase 0 spike (canvas-based candidates first)                    | The grid is the single most important widget; it must handle a million rows                                             |
-| Query editor           | CodeMirror 6                                                                  | Lighter than Monaco, better suited to custom SQL completion                                                             |
-| MySQL driver           | mysql2                                                                        | Typed values, Buffers for binary, charset-aware, streaming, mature                                                      |
-| SQLite driver          | better-sqlite3                                                                | Synchronous, fast, well maintained                                                                                      |
-| MSSQL driver (Phase 3) | tedious                                                                       | The standard pure-JS option                                                                                             |
-| SSH                    | ssh2                                                                          | Pure JS, agent, keys, jump hosts; no shelling out to the system binary                                                  |
-| Secrets                | Electron safeStorage plus OS keychain via a native keyring binding            | Encrypted at rest, OS-managed                                                                                           |
-| Packaging              | electron-builder                                                              | Produces dmg, zip, nsis, deb, AppImage from one config                                                                  |
-| Tests                  | Vitest for units, Playwright for the UI, Docker Compose for the engine matrix |                                                                                                                         |
+| Concern           | Choice                                                                        | Why                                                                                                                     |
+| ----------------- | ----------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| Shell             | Electron                                                                      | Identical rendering on every OS; one language for app, drivers, LocalWP add-on and MCP server; largest contributor pool |
+| Language          | TypeScript, strict mode, everywhere                                           | See above                                                                                                               |
+| UI                | React                                                                         | House style; mature ecosystem for grids and editors                                                                     |
+| Styling           | SCSS modules, system fonts, native light and dark mode                        | No design system dependency                                                                                             |
+| Data grid         | Decided by a Phase 0 spike (canvas-based candidates first)                    | The grid is the single most important widget; it must handle a million rows                                             |
+| Query editor      | CodeMirror 6                                                                  | Lighter than Monaco, better suited to custom SQL completion                                                             |
+| MySQL driver      | mysql2                                                                        | Typed values, Buffers for binary, charset-aware, streaming, mature                                                      |
+| SQLite driver     | better-sqlite3                                                                | Synchronous, fast, well maintained                                                                                      |
+| PostgreSQL driver | pg with pg-cursor                                                             | The standard pure-JS client; cursors stream with backpressure (D-39)                                                    |
+| MSSQL driver      | tedious                                                                       | The standard pure-JS option (D-39)                                                                                      |
+| SSH               | ssh2                                                                          | Pure JS, agent, keys, jump hosts; no shelling out to the system binary                                                  |
+| Secrets           | Electron safeStorage plus OS keychain via a native keyring binding            | Encrypted at rest, OS-managed                                                                                           |
+| Packaging         | electron-builder                                                              | Produces dmg, zip, nsis, deb, AppImage from one config                                                                  |
+| Tests             | Vitest for units, Playwright for the UI, Docker Compose for the engine matrix |                                                                                                                         |
 
 Tauri with Rust was the runner-up. It lost on webview inconsistency across OSes, on the smaller contributor pool, and because dynamic driver plugins are awkward in a compiled core.
 
@@ -348,6 +349,8 @@ packages/
   driver-sdk/         base classes, test harness, MIT
   driver-mysql/       MySQL and MariaDB driver, GPL
   driver-sqlite/      SQLite driver, GPL
+  driver-postgres/    PostgreSQL driver, GPL
+  driver-mssql/       Microsoft SQL Server driver, GPL
   app/                Electron main, renderer, preload, GPL
   mcp/                MCP server and stdio bridge, GPL
   cli/                command-line entry point, GPL

@@ -352,3 +352,31 @@ fail Gatekeeper since 2026-09-01; notarization needs a paid Apple account (D-12)
 held to that rule and stays fully under the project's control. Bypassing Gatekeeper for every user
 is a decision the user should make, not the installer.
 **Owner:** Remon chose a tap without signing; Claude built it; dated 2026-10-10.
+
+## D-39 PostgreSQL and SQL Server drivers; schemas live inside the connected database
+
+**Decided:** Two more bundled drivers, each in its own utility process like the others.
+`driver-postgres` runs on `pg` with every type parser replaced by the identity, so cells arrive
+as the text the server printed (64-bit integers, numerics, microsecond timestamps, infinities
+exact), and streams through `pg-cursor` with backpressure. Scripts are split by the driver
+(dollar quotes, E-strings, nested comments). Contains, starts with and ends with use ILIKE on
+`column::text`, so they are case-insensitive like MySQL and work on numbers and dates. Cancel is
+`pg_cancel_backend` from a second connection, sent only while a statement runs, followed by a
+throwaway `SELECT 1`: a cancel that reaches an idle backend would otherwise kill the next
+statement. PostgreSQL prints no CREATE TABLE, so the driver builds one from the catalog.
+`driver-mssql` runs on `tedious`, which handles one request per connection, so the session queues
+calls. Text literals are always `N'…'`, LIKE escapes `[`, paging is TOP or OFFSET … FETCH, GO
+lines split batches, and DROP or ALTER of a column first removes its named default constraint.
+DECIMAL and MONEY arrive from tedious as JavaScript numbers: exact up to 15 significant digits,
+printed at the column's scale. SQL Server has no read-only session; a read-only connection refuses
+any batch that is not a plain read (strict keyword check outside strings and comments).
+In both engines the connection's database is fixed and the sidebar lists its schemas (`public`,
+`dbo`); another database needs another connection. The editor splits statements per engine, and
+the main process imports only driver manifests (`@rasql/driver-x/manifest`), not the client
+libraries. The URL schemes postgres, postgresql, mssql and sqlserver are parsed but not claimed
+from the OS, so RaSQL does not take them from tools people already use.
+**Why:** WordPress runs on SQL Server through a plugin, and PostgreSQL is the most asked-for
+engine after MySQL. Both have pure-JS clients, so no native modules ship. The engine matrix gains
+PostgreSQL 13, 16 and 18 and SQL Server 2019, 2022 and 2025 in Docker (SQL Server under
+emulation on Apple Silicon).
+**Owner:** Remon asked for both; Claude built them; dated 2026-10-12.

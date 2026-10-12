@@ -34,7 +34,9 @@ export function Sidebar({
       .listSchemas(sessionKey)
       .then((list) => {
         setSchemas(list);
-        if (!schema) {
+        // The connection's database names the schema on MySQL; on PostgreSQL and SQL Server
+        // schemas live inside the database, so start in the server's current one instead.
+        if (!schema || !list.some((s) => s.name === schema)) {
           const current = list.find((s) => s.isCurrent) ?? list.find((s) => !s.isSystem) ?? list[0];
           if (current) onSchemaChange(current.name);
         }

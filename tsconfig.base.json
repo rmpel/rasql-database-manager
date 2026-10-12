@@ -21,7 +21,12 @@
       "@rasql/driver-protocol": ["./packages/driver-protocol/src/index.ts"],
       "@rasql/driver-sdk": ["./packages/driver-sdk/src/index.ts"],
       "@rasql/driver-sqlite": ["./packages/driver-sqlite/src/index.ts"],
+      "@rasql/driver-mysql/manifest": ["./packages/driver-mysql/src/manifest.ts"],
+      "@rasql/driver-postgres/manifest": ["./packages/driver-postgres/src/manifest.ts"],
+      "@rasql/driver-mssql/manifest": ["./packages/driver-mssql/src/manifest.ts"],
       "@rasql/driver-mysql": ["./packages/driver-mysql/src/index.ts"],
+      "@rasql/driver-postgres": ["./packages/driver-postgres/src/index.ts"],
+      "@rasql/driver-mssql": ["./packages/driver-mssql/src/index.ts"],
       "@shared/*": ["./packages/app/src/shared/*"],
       "@rasql/localwp-addon": ["./packages/localwp-addon/src/index.ts"]
     }

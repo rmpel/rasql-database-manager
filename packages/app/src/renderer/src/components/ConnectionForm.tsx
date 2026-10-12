@@ -154,7 +154,10 @@ export function ConnectionForm({
           ? d.transport
           : (next.transports[0] as Transport),
       };
-      if (out.transport === 'tcp' && out.port === undefined && next.defaultPort !== undefined) {
+      // A port that is still the old driver's default follows the new driver: 3306 becomes 5432.
+      const previous = drivers.find((x) => x.id === d.driver);
+      const untouched = out.port === undefined || out.port === previous?.defaultPort;
+      if (out.transport === 'tcp' && untouched && next.defaultPort !== undefined) {
         out.port = next.defaultPort;
       }
       return out;

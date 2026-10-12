@@ -3,14 +3,22 @@ import { fileURLToPath } from 'node:url';
 
 const pkg = (name: string): string =>
   fileURLToPath(new URL(`./packages/${name}/src/index.ts`, import.meta.url));
+const manifest = (name: string): string =>
+  fileURLToPath(new URL(`./packages/${name}/src/manifest.ts`, import.meta.url));
 
 export default defineConfig({
   resolve: {
     alias: {
+      // Before the packages themselves: an alias also matches longer paths.
+      '@rasql/driver-mysql/manifest': manifest('driver-mysql'),
+      '@rasql/driver-postgres/manifest': manifest('driver-postgres'),
+      '@rasql/driver-mssql/manifest': manifest('driver-mssql'),
       '@rasql/driver-protocol': pkg('driver-protocol'),
       '@rasql/driver-sdk': pkg('driver-sdk'),
       '@rasql/driver-sqlite': pkg('driver-sqlite'),
       '@rasql/driver-mysql': pkg('driver-mysql'),
+      '@rasql/driver-postgres': pkg('driver-postgres'),
+      '@rasql/driver-mssql': pkg('driver-mssql'),
       '@shared': fileURLToPath(new URL('./packages/app/src/shared', import.meta.url)),
     },
   },
@@ -33,6 +41,14 @@ export default defineConfig({
       {
         extends: true,
         test: { name: 'driver-mysql', include: ['packages/driver-mysql/**/*.test.ts'] },
+      },
+      {
+        extends: true,
+        test: { name: 'driver-postgres', include: ['packages/driver-postgres/**/*.test.ts'] },
+      },
+      {
+        extends: true,
+        test: { name: 'driver-mssql', include: ['packages/driver-mssql/**/*.test.ts'] },
       },
       {
         extends: true,

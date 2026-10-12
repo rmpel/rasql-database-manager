@@ -212,6 +212,9 @@ export abstract class BaseDialect implements Dialect {
   abstract quoteIdentifier(name: string): string;
   abstract quoteLiteral(v: Value): string;
 
+  /** Characters with a meaning inside LIKE patterns, escaped with '!'. SQL Server adds '['. */
+  protected likeSpecials: RegExp = /[!%_]/g;
+
   protected qualify(table: TableRef): string {
     return table.schema
       ? `${this.quoteIdentifier(table.schema)}.${this.quoteIdentifier(table.name)}`
@@ -239,7 +242,7 @@ export abstract class BaseDialect implements Dialect {
       'v' in v && (typeof v.v === 'string' || typeof v.v === 'number') ? String(v.v) : null;
     if (text === null)
       throw new DriverError('UNSUPPORTED', `Filter ${f.op} on ${f.column} needs text`);
-    const escaped = text.replace(/[!%_]/g, (c) => `!${c}`);
+    const escaped = text.replace(this.likeSpecials, (c) => `!${c}`);
     return `${this.quoteLiteral({ t: 'text', v: `${before}${escaped}${after}` })} ESCAPE '!'`;
   }
 
