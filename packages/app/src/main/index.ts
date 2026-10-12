@@ -74,6 +74,8 @@ if (!app.requestSingleInstanceLock()) {
       const icon = nativeImage.createFromPath(join(app.getAppPath(), 'build/icon.png'));
       if (!icon.isEmpty()) app.dock?.setIcon(icon);
     }
+    // postgres, postgresql, mssql and sqlserver are declared in electron-builder.yml so the user
+    // can pick RaSQL for them, but not claimed here: other tools may already own them (D-39).
     if (app.isPackaged) {
       for (const scheme of ['rasql', 'mysql', 'mariadb', 'sqlite'])
         app.setAsDefaultProtocolClient(scheme);

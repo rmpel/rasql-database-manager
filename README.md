@@ -21,6 +21,13 @@ https://github.com/rmpel/rasql-database-manager/releases/tag/nightly. It carries
 Silicon and Intel), Windows (x64 installer, ARM64 zip) and Linux (x64 and ARM64 AppImage and
 .deb). The builds are unsigned; the release notes say how to get past the first-launch warning.
 
+RaSQL opens `rasql://`, `mysql://`, `mariadb://` and `sqlite://` links. It can also open
+`postgres://`, `postgresql://`, `mssql://` and `sqlserver://` links, but does not take them from
+other apps. If no other app handles them, macOS will probably send them to RaSQL anyway. Otherwise,
+macOS has no settings screen for this, so use [duti](https://github.com/moretension/duti)
+(`brew install duti`): `duti -s nl.remonpel.rasql postgres all`, and the same for the other
+schemes. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) section 7.
+
 ## Developing
 
 Starting from a machine with nothing installed? See [BUILD.md](BUILD.md) for a from-scratch guide per OS and CPU, including Windows on ARM.

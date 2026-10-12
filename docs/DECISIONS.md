@@ -373,8 +373,9 @@ any batch that is not a plain read (strict keyword check outside strings and com
 In both engines the connection's database is fixed and the sidebar lists its schemas (`public`,
 `dbo`); another database needs another connection. The editor splits statements per engine, and
 the main process imports only driver manifests (`@rasql/driver-x/manifest`), not the client
-libraries. The URL schemes postgres, postgresql, mssql and sqlserver are parsed but not claimed
-from the OS, so RaSQL does not take them from tools people already use.
+libraries. The URL schemes postgres, postgresql, mssql and sqlserver are declared in the app
+bundle but not claimed at launch, so RaSQL does not take them from tools people already use; the
+user can make RaSQL their handler (on macOS with a tool such as `duti`).
 **Why:** WordPress runs on SQL Server through a plugin, and PostgreSQL is the most asked-for
 engine after MySQL. Both have pure-JS clients, so no native modules ship. The engine matrix gains
 PostgreSQL 13, 16 and 18 and SQL Server 2019, 2022 and 2025 in Docker (SQL Server under
