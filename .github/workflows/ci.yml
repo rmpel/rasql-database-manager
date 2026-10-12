@@ -120,6 +120,8 @@ jobs:
 
           **Unsigned builds**: macOS blocks the first launch (System Settings, Privacy & Security, Open Anyway), Windows shows a SmartScreen prompt (More info, Run anyway). See docs/DECISIONS.md D-12.
 
+          **Linux AppImage**: make it executable (`chmod +x`) and run it; RaSQL offers to move itself to `~/Applications/RaSQL.AppImage` and add itself to the applications menu. A newer download run once replaces the older copy the same way.
+
           | Platform | File |
           | --- | --- |
           | macOS Apple Silicon | RaSQL-$VERSION-mac-arm64.dmg |
@@ -178,6 +180,8 @@ jobs:
           **macOS with Homebrew**: \`brew install --cask rmpel/rasql/rasql\`
 
           **Unsigned builds**: macOS blocks the first launch (System Settings, Privacy & Security, Open Anyway), Windows shows a SmartScreen prompt (More info, Run anyway). See docs/DECISIONS.md D-12.
+
+          **Linux AppImage**: make it executable (`chmod +x`) and run it; RaSQL offers to move itself to `~/Applications/RaSQL.AppImage` and add itself to the applications menu. A newer download run once replaces the older copy the same way.
 
           | Platform | File |
           | --- | --- |

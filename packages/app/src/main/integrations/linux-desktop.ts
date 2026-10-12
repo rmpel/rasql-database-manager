@@ -1,4 +1,13 @@
-import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import {
+  chmodSync,
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  renameSync,
+  unlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { execFile } from 'node:child_process';
@@ -16,6 +25,10 @@ export interface DesktopIntegrationStatus {
   desktopFile: string;
   /** A desktop entry exists and points at this executable. */
   installed: boolean;
+  /** The AppImage sits at a fixed path, so updates can replace it without breaking the entry. */
+  placed: boolean;
+  /** Where a downloaded AppImage is moved to: ~/Applications/RaSQL.AppImage. */
+  target: string;
 }
 
 export interface DesktopPaths {
@@ -23,6 +36,45 @@ export interface DesktopPaths {
   /** The AppImage path Electron sees in `process.env.APPIMAGE`. */
   appImage?: string | undefined;
   platform?: NodeJS.Platform;
+}
+
+/**
+ * Where a downloaded AppImage settles. One fixed name, so a newer download replaces the older one
+ * and the desktop entry keeps pointing at the right file.
+ */
+export function appImageTarget(home = homedir()): string {
+  return join(home, 'Applications', 'RaSQL.AppImage');
+}
+
+/** ~/Applications is where AppImage tools put them; ~/.local/bin is where install-linux.sh does. */
+export function isPlaced(executable: string, home = homedir()): boolean {
+  return (
+    executable === appImageTarget(home) ||
+    executable === join(home, '.local', 'bin', 'RaSQL.AppImage')
+  );
+}
+
+/**
+ * Move the running AppImage to ~/Applications/RaSQL.AppImage, replacing an older copy, and return
+ * the new path. Moving a running AppImage is safe: its mount holds the file open. Across
+ * filesystems it is copied next to the target first, so the replacement is still one rename.
+ */
+export function placeAppImage(executable: string, home = homedir()): string {
+  const target = appImageTarget(home);
+  if (executable === target) return target;
+  mkdirSync(dirname(target), { recursive: true });
+  try {
+    renameSync(executable, target);
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code !== 'EXDEV') throw err;
+    const partial = `${target}.partial`;
+    copyFileSync(executable, partial);
+    chmodSync(partial, 0o755);
+    renameSync(partial, target);
+    unlinkSync(executable);
+  }
+  chmodSync(target, 0o755);
+  return target;
 }
 
 export function desktopFilePath(home = homedir()): string {
@@ -52,11 +104,13 @@ export function desktopIntegrationStatus(paths: DesktopPaths = {}): DesktopInteg
   const executable = paths.appImage ?? process.env['APPIMAGE'] ?? null;
   const desktopFile = desktopFilePath(paths.home);
   const applicable = platform === 'linux' && executable !== null;
+  const home = paths.home ?? homedir();
   let installed = false;
   if (applicable && existsSync(desktopFile)) {
     installed = readFileSync(desktopFile, 'utf8').includes(`Exec="${executable}" %u`);
   }
-  return { applicable, executable, desktopFile, installed };
+  const placed = executable !== null && isPlaced(executable, home);
+  return { applicable, executable, desktopFile, installed, placed, target: appImageTarget(home) };
 }
 
 /**

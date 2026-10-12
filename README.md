@@ -22,6 +22,11 @@ https://github.com/rmpel/rasql-database-manager/releases/tag/nightly. It carries
 Silicon and Intel), Windows (x64 installer, ARM64 zip) and Linux (x64 and ARM64 AppImage and
 .deb). The builds are unsigned; the release notes say how to get past the first-launch warning.
 
+On Linux, make the downloaded AppImage executable (`chmod +x`, or the Permissions tab of its
+Properties) and run it. RaSQL then offers to move itself to `~/Applications/RaSQL.AppImage` and
+add itself to the applications menu. To update, download the newer AppImage and run it once: it
+offers the same move, which replaces the older copy.
+
 ## Developing
 
 Starting from a machine with nothing installed? See [BUILD.md](BUILD.md) for a from-scratch guide per OS and CPU, including Windows on ARM.

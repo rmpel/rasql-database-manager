@@ -376,3 +376,19 @@ single-user desktop app. Write access on production through MCP: the read-only f
 nobody writes there.
 **Owner:** Remon decided the settings and the prompt; Claude proposed Hidden, the destructive
 rules and the connection limits, which Remon accepted; dated 2026-10-12.
+
+## D-40 A downloaded AppImage moves itself to ~/Applications/RaSQL.AppImage
+
+**Decided:** When an AppImage runs from anywhere other than `~/Applications/RaSQL.AppImage` or the
+install script's `~/.local/bin/RaSQL.AppImage`, RaSQL offers to move it to
+`~/Applications/RaSQL.AppImage` and write the desktop entry for that path. The choices are move
+and add to menu, keep it here and add to menu, not now, and never ask again. A newer download run
+once gets the same offer and replaces the older copy, so the desktop entry never points at a stale
+file. Release files keep the version in their names.
+**Why:** AppImages have no installer, so a download stays in `~/Downloads` and its desktop entry
+breaks on the next update. `~/Applications` is where AppImageLauncher and most guides put them,
+and one fixed name makes updating a matter of running the new file.
+**Rejected:** Unversioned release file names: downloads become indistinguishable and update tools
+expect the version. Moving without asking: some users keep AppImages in a folder of their own.
+**Owner:** Remon asked for the pre-built download to end up in the proper place with the desktop
+entry offered; Claude proposed `~/Applications` and the replace-on-update flow; dated 2026-10-12.

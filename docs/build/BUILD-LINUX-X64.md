@@ -151,9 +151,11 @@ pnpm matrix:down     # removes the containers and their data
 - **Icon or URL handler does not appear**: log out and in once, or run
   `update-desktop-database ~/.local/share/applications`.
 - **You downloaded the AppImage instead of using the script**: an AppImage cannot register itself.
-  RaSQL offers to add a desktop entry on its first launch, and **File, Integrate with Desktop…**
-  does it later. Until then the LocalWP add-on cannot find a handler for `rasql://` links and shows
-  "Get RaSQL" instead of "Open in RaSQL".
+  On launch RaSQL offers to move itself to `~/Applications/RaSQL.AppImage` (replacing an older
+  copy) and add a desktop entry; **File, Integrate with Desktop…** does it later. Run a newer
+  download once and it offers the same move again, which is how an AppImage is updated. Until the
+  entry exists the LocalWP add-on cannot find a handler for `rasql://` links and shows "Get RaSQL"
+  instead of "Open in RaSQL".
 
 ## Updating later
 
