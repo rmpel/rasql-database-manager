@@ -376,3 +376,23 @@ single-user desktop app. Write access on production through MCP: the read-only f
 nobody writes there.
 **Owner:** Remon decided the settings and the prompt; Claude proposed Hidden, the destructive
 rules and the connection limits, which Remon accepted; dated 2026-10-12.
+
+## D-40 Linux packages: the static AppImage runtime and a dependency list that matches Electron
+
+**Decided:** The AppImage is built with electron-builder's static-runtime toolset
+(`toolsets.appimage: "1.0.3"`) instead of the legacy one, and keeps `--no-sandbox` in its embedded
+desktop entry as the legacy toolset did. The .deb declares its own `depends`: electron-builder's
+default list without `libxss1` and `libxtst6`, with `libgbm1` and `libasound2` added. The install
+script and the guides install the .deb with `apt install ./file.deb`, not `dpkg -i`. Pre-built
+packages get their own guides per OS and CPU (`INSTALL.md`, `docs/install/`), next to the build
+guides.
+**Why:** The 0.1.1 arm64 AppImage did not start on Ubuntu 22.04: the legacy runtime's arm64 binary
+links the unversioned `libz.so`, which only `zlib1g-dev` provides (the x64 one links `libz.so.1`).
+It also needs `libfuse2`, which current distributions no longer install; the static runtime needs
+neither, only `fusermount3`, which they do. The .deb failed under `dpkg -i` on `libxss1`, a
+library Electron 44's binary does not link (checked with `objdump -p` on the shipped `rasql`),
+while `libgbm1` and `libasound2`, which it does link, were missing from the list.
+**Rejected:** Telling ARM users to install `zlib1g-dev`: a development package as a runtime
+requirement, for a defect in a runtime electron-builder already replaced. The static toolset is
+marked beta upstream; revisit if it causes trouble, the legacy runtime is one line away.
+**Owner:** Claude, from a failed install report by Remon; dated 2026-10-13.

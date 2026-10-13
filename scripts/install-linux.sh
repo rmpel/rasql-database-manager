@@ -3,7 +3,7 @@
 # Installs the AppImage under ~/.local/bin and a desktop entry that registers the rasql://,
 # mysql://, mariadb:// and sqlite:// URL schemes and the database file types.
 # Usage: pnpm install:linux     (or: scripts/install-linux.sh [--no-launch] [--deb])
-#   --deb   install the .deb with sudo dpkg instead of the per-user AppImage
+#   --deb   install the .deb with sudo apt (which pulls in its dependencies) instead of the per-user AppImage
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -47,7 +47,7 @@ if [[ $USE_DEB -eq 1 ]]; then
   DEB=$(ls "$APP_DIR"/release/*.deb | head -1)
   [[ -f "$DEB" ]] || { echo "No .deb produced" >&2; exit 1; }
   echo "==> Installing $DEB (sudo)"
-  sudo dpkg -i "$DEB"
+  sudo apt install -y "$DEB"
   EXEC=/usr/bin/rasql
 else
   APPIMAGE=$(ls "$APP_DIR"/release/*"$ARCH_TAG"*.AppImage 2>/dev/null | head -1)

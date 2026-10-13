@@ -118,6 +118,8 @@ jobs:
           NOTES=$(cat <<EOF
           Rolling pre-release built from \`$SHA\` on $(date -u +'%Y-%m-%d %H:%M UTC'). Replaced on every push to master.
 
+          **Installing**: step-by-step per OS and CPU in [INSTALL.md](https://github.com/rmpel/rasql-database-manager/blob/master/INSTALL.md). On Linux, install the .deb with \`sudo apt install ./<file>.deb\`, not \`dpkg -i\`.
+
           **Unsigned builds**: macOS blocks the first launch (System Settings, Privacy & Security, Open Anyway), Windows shows a SmartScreen prompt (More info, Run anyway). See docs/DECISIONS.md D-12.
 
           | Platform | File |
@@ -176,6 +178,8 @@ jobs:
           VERSION=${GITHUB_REF_NAME#v}
           NOTES=$(cat <<EOF
           **macOS with Homebrew**: \`brew install --cask rmpel/rasql/rasql\`
+
+          **Installing**: step-by-step per OS and CPU in [INSTALL.md](https://github.com/rmpel/rasql-database-manager/blob/master/INSTALL.md). On Linux, install the .deb with \`sudo apt install ./<file>.deb\`, not \`dpkg -i\`.
 
           **Unsigned builds**: macOS blocks the first launch (System Settings, Privacy & Security, Open Anyway), Windows shows a SmartScreen prompt (More info, Run anyway). See docs/DECISIONS.md D-12.
 

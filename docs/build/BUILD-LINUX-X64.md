@@ -15,11 +15,11 @@ and the package names are close enough to find. Nothing here needs root except `
 ```
 sudo apt update
 sudo apt install -y git curl ca-certificates \
-  libgtk-3-0 libnotify4 libnss3 libxss1 libxtst6 xdg-utils libatspi2.0-0 libuuid1 libsecret-1-0 libasound2t64 libfuse2t64
+  libgtk-3-0 libnotify4 libnss3 libgbm1 xdg-utils libatspi2.0-0 libuuid1 libsecret-1-0 libasound2t64 fuse3
 ```
 
-On Ubuntu 22.04 the last two are called `libasound2` and `libfuse2`. `libfuse2` is what lets an
-AppImage run; `libsecret` is the keychain RaSQL stores passwords in (GNOME Keyring or KDE Wallet
+On Ubuntu 22.04 `libasound2t64` is called `libasound2`. `fuse3` is what lets an AppImage run (it
+is already there on Ubuntu 22.04 and later; the old `libfuse2` is no longer needed); `libsecret` is the keychain RaSQL stores passwords in (GNOME Keyring or KDE Wallet
 must be running for that; otherwise RaSQL falls back to its own encrypted store).
 
 ### Node.js 24 with nvm
@@ -66,13 +66,13 @@ plain `nodejs` is newer and ships without corepack.
 
 ```
 sudo pacman -S --needed git curl nodejs-lts-krypton npm corepack \
-  gtk3 libnotify nss libxss libxtst xdg-utils at-spi2-core util-linux-libs libsecret alsa-lib fuse2 \
+  gtk3 libnotify nss mesa xdg-utils at-spi2-core util-linux-libs libsecret alsa-lib fuse3 \
   xorg-server-xvfb
 corepack enable pnpm --install-directory ~/.local/bin   # user-writable and already on PATH
 ```
 
 If `corepack` is not in your repositories, `npm install -g --prefix ~/.local corepack` does the same
-without touching `/usr`. `fuse2` is what lets the AppImage run; `xorg-server-xvfb` is only for the
+without touching `/usr`. `fuse3` is what lets the AppImage run; `xorg-server-xvfb` is only for the
 UI tests. Docker: `sudo pacman -S docker`, `sudo systemctl enable --now docker`, add yourself to the
 `docker` group and log in again. Then continue with step 2.
 
@@ -116,7 +116,7 @@ Build the installer and install it:
 pnpm install:linux
 # builds an AppImage and a .deb for this CPU, installs the AppImage under ~/.local/bin with a
 # desktop entry that registers rasql:// and the SQLite file types, and launches it.
-# Add --deb to install the .deb with sudo dpkg instead, or --no-launch to skip the launch.
+# Add --deb to install the .deb with sudo apt instead, or --no-launch to skip the launch.
 ```
 
 The packages also land in `packages/app/release/` as `RaSQL-<version>-x64.AppImage` and a `.deb`.
@@ -138,8 +138,10 @@ pnpm matrix:down     # removes the containers and their data
 
 ## Troubleshooting
 
-- **The AppImage does not start, "dlopen(): error loading libfuse.so.2"**: install `libfuse2`
-  (`libfuse2t64` on Ubuntu 24.04), or use `pnpm install:linux --deb`.
+- **The AppImage does not start and mentions FUSE or `fusermount3`**: install `fuse3`, or run it
+  with `--appimage-extract-and-run`, or use `pnpm install:linux --deb`. Builds up to 0.1.1 used an
+  older AppImage runtime that needed `libfuse2` (and, on ARM, `zlib1g-dev`); see
+  [INSTALL-LINUX-X64.md](../install/INSTALL-LINUX-X64.md).
 - **"The SUID sandbox helper binary was found, but is not configured correctly"**: on some
   Ubuntu 24.04 setups Electron's sandbox needs user namespaces:
   `sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0`. Not needed on the GitHub runners.

@@ -25,6 +25,10 @@ asar: true
 asarUnpack:
   - node_modules/@napi-rs/**
 npmRebuild: false
+# The static AppImage runtime. The legacy one (0.0.0) needs libfuse2, and its arm64 build links the
+# unversioned libz.so, which only zlib1g-dev provides, so it did not start (docs/DECISIONS.md D-40).
+toolsets:
+  appimage: '1.0.3'
 protocols:
   - name: RaSQL connection
     schemes: [rasql, mysql, mariadb, sqlite]
@@ -61,6 +65,24 @@ linux:
       arch: [x64, arm64]
   category: Development
   maintainer: Remon Pel
+appImage:
+  # The legacy toolset added this to the embedded desktop entry by default; the static one does
+  # not. A FUSE mount cannot carry the setuid sandbox helper, and Ubuntu 24.04 blocks the
+  # user-namespace fallback, so desktop integrations (AppImageLauncher, Gear Lever) need it.
+  executableArgs: ['--no-sandbox']
+deb:
+  # electron-builder's default list, minus libxss1 and libxtst6, which Electron no longer links,
+  # plus libgbm1 and libasound2, which it does (D-40). Ubuntu 24.04's t64 packages provide these names.
+  depends:
+    - libgtk-3-0
+    - libnotify4
+    - libnss3
+    - libgbm1
+    - libasound2
+    - xdg-utils
+    - libatspi2.0-0
+    - libuuid1
+    - libsecret-1-0
 win:
   # The zip is what scripts/install-windows.ps1 installs from; the NSIS installer is for x64
   # downloads only. On arm64 the NSIS extractor drops .exe and .dll files (docs/DECISIONS.md D-30).

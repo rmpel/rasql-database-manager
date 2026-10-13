@@ -5,6 +5,8 @@ nothing installed; if you already have Git, Node or pnpm, skip those steps. Each
 built from source and installed, and explains the one-time warning you will see because the
 builds are not code-signed (see `docs/DECISIONS.md` D-12).
 
+Just want to use RaSQL? Install a pre-built package with [INSTALL.md](INSTALL.md) instead.
+
 | Your machine                                                       | Guide                                                                              |
 | ------------------------------------------------------------------ | ---------------------------------------------------------------------------------- |
 | Mac with Apple Silicon (M1 or later)                               | [docs/build/BUILD-MACOS-APPLE-SILICON.md](docs/build/BUILD-MACOS-APPLE-SILICON.md) |

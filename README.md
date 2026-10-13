@@ -17,6 +17,9 @@ RaSQL connects to the database the way developers actually reach it: a socket on
 
 ## Downloads
 
+Versioned releases: https://github.com/rmpel/rasql-database-manager/releases/latest. See
+[INSTALL.md](INSTALL.md) for step-by-step installation per OS and CPU.
+
 Every push to `master` that passes CI replaces the rolling **nightly** pre-release:
 https://github.com/rmpel/rasql-database-manager/releases/tag/nightly. It carries macOS (Apple
 Silicon and Intel), Windows (x64 installer, ARM64 zip) and Linux (x64 and ARM64 AppImage and
@@ -38,7 +41,7 @@ pnpm matrix:up      # MySQL 5.7, 8.0, 8.4, MariaDB 10.6, 10.11, 11.4, Percona 8.
 pnpm test:matrix    # MySQL driver conformance against every engine that is up
 pnpm --filter @rasql/app package:mac   # unsigned .dmg and .zip in packages/app/release
 pnpm install:mac       # build, package, (re)install ~/Applications/RaSQL.app, launch
-pnpm install:linux     # same for Linux: AppImage under ~/.local/bin plus a desktop entry (--deb for dpkg)
+pnpm install:linux     # same for Linux: AppImage under ~/.local/bin plus a desktop entry (--deb for apt)
 pnpm install:windows   # same for Windows: silent per-user NSIS install, from PowerShell
 ```
 
