@@ -1,8 +1,14 @@
 # RaSQL
 
-A fast, keyboard-first database manager for web developers. Free, open source, Mac first, built for every OS.
+A fast database manager for web developers. Free, open source, Mac first, builds available for Windows, Mac and Linux, on AMD64/intel as well as ARM64.
 
-**Status: Phase 0, foundation.** The driver protocol, SDK, SQLite and MySQL/MariaDB drivers and an Electron shell that opens, browses and queries databases exist and are tested. It is a scaffold, not a daily driver yet. See `docs/GOAL.md` for the phases.
+## DISCLAIMER
+
+This is Claude co-authored software, if you don't like AI generated software, then don't use it.
+
+This is not copied software, not reverse engineered, not taken from any other project, this is coded from scratch (by Claude).
+
+**Status: Phase 1, foundation.** The driver protocol, SDK, SQLite and MySQL/MariaDB drivers and an Electron shell that opens, browses and queries databases exist and are tested. It is a scaffold, not a daily driver yet. See `docs/GOAL.md` for the phases.
 
 | Document                                     | What it answers                                                                     |
 | -------------------------------------------- | ----------------------------------------------------------------------------------- |
@@ -13,7 +19,7 @@ A fast, keyboard-first database manager for web developers. Free, open source, M
 
 ## In one paragraph
 
-RaSQL connects to the database the way developers actually reach it: a socket on the laptop, TCP on localhost, an SSH tunnel to a server. It opens in under a second, is driven from the keyboard, and shows production connections in a different color than local ones. Database engines are plug-in drivers behind one protocol, so the project starts with MySQL and MariaDB plus SQLite and grows from there without touching the core. It can be opened with one click from other tools, starting with a LocalWP add-on, and it exposes its connections to AI agents over MCP, but only the connections the user explicitly grants.
+RaSQL connects to the database the way developers actually reach it: a socket on the laptop, TCP on localhost, an SSH tunnel to a server. It opens in under a second and shows production connections in a different color than local ones. Database engines are plug-in drivers behind one protocol, so the project starts with MySQL and MariaDB plus SQLite and grows from there without touching the core. It can be opened with one click from other tools, starting with a LocalWP add-on, and it exposes its connections to AI agents over MCP, but only the connections the user explicitly grants.
 
 ## Downloads
 
