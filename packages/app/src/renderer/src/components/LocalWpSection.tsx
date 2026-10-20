@@ -1,5 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { LocalAddonStatus, LocalSite, PendingConnection } from '@shared/api';
+import type {
+  LocalAddonStatus,
+  LocalSite,
+  McpAccess,
+  McpLocalAccess,
+  PendingConnection,
+} from '@shared/api';
+import { MCP_ACCESS_OPTIONS } from '@shared/api';
 import { rasql } from '../api';
 
 interface Props {
@@ -13,6 +20,17 @@ export function LocalWpSection({ onPending, busy }: Props): React.JSX.Element | 
   const [sites, setSites] = useState<LocalSite[]>([]);
   const [working, setWorking] = useState(false);
   const [note, setNote] = useState<{ kind: 'info' | 'error'; text: string } | null>(null);
+  // What agents may do per site (MCP.md section 1): Local sites have no form, so a gear sets it.
+  const [access, setAccess] = useState<McpLocalAccess>({ defaultAccess: 'hidden', sites: {} });
+  const [editing, setEditing] = useState<string | null>(null);
+  const [presence, setPresence] = useState(false);
+
+  useEffect(() => {
+    const load = (): void => void rasql.mcp.localAccess().then(setAccess);
+    load();
+    void rasql.mcp.presence().then((p) => setPresence(p.available));
+    return rasql.mcp.onChanged(load);
+  }, []);
 
   const refresh = useCallback(() => {
     rasql.localwp
@@ -114,22 +132,73 @@ export function LocalWpSection({ onPending, busy }: Props): React.JSX.Element | 
         </div>
       )}
       <ul className="local-sites">
-        {sites.map((s) => (
-          <li key={s.id}>
-            <button
-              className="local-site"
-              onClick={() => void open(s)}
-              disabled={busy}
-              title={
-                s.running ? 'Running, connects over the socket' : 'Stopped, tries the TCP port'
-              }
-            >
-              <span className={`env-dot ${s.running ? 'running' : 'stopped'}`} />
-              <span className="local-site-name">{s.name}</span>
-              <span className="local-site-domain">{s.domain ?? ''}</span>
-            </button>
-          </li>
-        ))}
+        {sites.map((s) => {
+          const own = access.sites[s.id];
+          const effective = own ?? access.defaultAccess;
+          const label = (a: McpAccess): string =>
+            MCP_ACCESS_OPTIONS.find((o) => o.value === a)?.label ?? a;
+          return (
+            <li key={s.id} className="local-site-row">
+              <button
+                className="local-site"
+                onClick={() => void open(s)}
+                disabled={busy}
+                title={
+                  s.running ? 'Running, connects over the socket' : 'Stopped, tries the TCP port'
+                }
+              >
+                <span className={`env-dot ${s.running ? 'running' : 'stopped'}`} />
+                <span className="local-site-name">{s.name}</span>
+                <span className="local-site-domain">
+                  {s.domain ?? ''}
+                  {effective !== 'hidden' && (
+                    <span className="mcp-badge"> · agents: {label(effective)}</span>
+                  )}
+                </span>
+              </button>
+              <button
+                className="local-site-mcp"
+                title="What AI agents may do with this site (MCP)"
+                aria-expanded={editing === s.id}
+                onClick={() => setEditing((e) => (e === s.id ? null : s.id))}
+              >
+                ⚙
+              </button>
+              {editing === s.id && (
+                <label className="local-site-access">
+                  Agents (MCP)
+                  <select
+                    value={own ?? 'default'}
+                    onChange={(e) =>
+                      void rasql.mcp
+                        .setLocalAccess(
+                          s.id,
+                          e.target.value === 'default' ? null : (e.target.value as McpAccess),
+                        )
+                        .then(setAccess)
+                    }
+                  >
+                    <option value="default">
+                      Default for Local sites ({label(access.defaultAccess)})
+                    </option>
+                    {MCP_ACCESS_OPTIONS.map((o) => (
+                      <option
+                        key={o.value}
+                        value={o.value}
+                        disabled={o.value === 'secure' && !presence && own !== 'secure'}
+                      >
+                        {o.label}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="hint">
+                    {MCP_ACCESS_OPTIONS.find((o) => o.value === effective)?.help}
+                  </span>
+                </label>
+              )}
+            </li>
+          );
+        })}
         {sites.length === 0 && <li className="hint">No sites in Local yet.</li>}
       </ul>
     </section>

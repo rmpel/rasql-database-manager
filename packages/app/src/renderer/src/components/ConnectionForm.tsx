@@ -7,7 +7,7 @@ import type {
   SshAuthMethod,
   SshHop,
 } from '@shared/api';
-import { ENVIRONMENT_COLORS } from '@shared/api';
+import { ENVIRONMENT_COLORS, MCP_ACCESS_OPTIONS, mcpAccessOf } from '@shared/api';
 import { rasql } from '../api';
 
 const WELL_KNOWN = new Set([
@@ -95,6 +95,18 @@ export function ConnectionForm({
   const [sshPassphrase, setSshPassphrase] = useState('');
   const [saveSshSecrets, setSaveSshSecrets] = useState(true);
   const [sshAliases, setSshAliases] = useState<string[]>([]);
+  // Secure needs the OS to confirm the user; without that it is shown but cannot be picked.
+  const [presence, setPresence] = useState<{ available: boolean; label: string }>({
+    available: false,
+    label: '',
+  });
+
+  useEffect(() => {
+    rasql.mcp
+      .presence()
+      .then(setPresence)
+      .catch(() => setPresence({ available: false, label: '' }));
+  }, []);
 
   useEffect(() => {
     rasql.ssh
@@ -546,10 +558,51 @@ export function ConnectionForm({
         <input
           type="checkbox"
           checked={def.readOnly}
-          onChange={(e) => update('readOnly', e.target.checked)}
+          onChange={(e) => {
+            const readOnly = e.target.checked;
+            // A read-only connection never writes for anyone, agents included.
+            setDef((d) => ({ ...d, readOnly, mcp: mcpAccessOf({ mcp: d.mcp, readOnly }) }));
+          }}
         />
         Open read-only
       </label>
+
+      <div className="form-row">
+        <label title="What AI agents may do with this connection over MCP">
+          Agents (MCP)
+          <select
+            value={mcpAccessOf(def)}
+            onChange={(e) => update('mcp', e.target.value as ConnectionDefinition['mcp'])}
+          >
+            {MCP_ACCESS_OPTIONS.filter(
+              (o) => !def.readOnly || o.value === 'hidden' || o.value === 'read',
+            ).map((o) => (
+              <option
+                key={o.value}
+                value={o.value}
+                disabled={
+                  o.value === 'secure' && !presence.available && mcpAccessOf(def) !== 'secure'
+                }
+              >
+                {o.label}
+                {o.value === 'secure' && !presence.available ? ' (not available here)' : ''}
+              </option>
+            ))}
+          </select>
+        </label>
+        <p className="hint grow mcp-access-help">
+          {MCP_ACCESS_OPTIONS.find((o) => o.value === mcpAccessOf(def))?.help}
+          {mcpAccessOf(def) !== 'hidden' && !def.database && def.transport !== 'file'
+            ? ' Fill in a database: agents see no data without one.'
+            : ''}
+          {mcpAccessOf(def) === 'secure' && presence.available
+            ? ` Here that is ${presence.label}.`
+            : ''}
+          {mcpAccessOf(def) === 'secure' && !presence.available
+            ? ' This computer cannot confirm you (no Touch ID, Windows Hello or polkit), so no change can be approved.'
+            : ''}
+        </p>
+      </div>
 
       {error && <div className="form-error">{error}</div>}
 

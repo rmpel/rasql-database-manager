@@ -8,6 +8,20 @@ import type { ConnectionDefinition } from '@shared/api';
 export class ConnectionStore {
   private readonly file = join(app.getPath('userData'), 'connections.json');
   private cache: ConnectionDefinition[] | null = null;
+  private readonly listeners: ((
+    before: ConnectionDefinition | undefined,
+    after: ConnectionDefinition | undefined,
+  ) => void)[] = [];
+
+  /** Called after every save and removal. */
+  onChange(
+    listener: (
+      before: ConnectionDefinition | undefined,
+      after: ConnectionDefinition | undefined,
+    ) => void,
+  ): void {
+    this.listeners.push(listener);
+  }
 
   list(): ConnectionDefinition[] {
     if (this.cache) return this.cache;
@@ -32,15 +46,19 @@ export class ConnectionStore {
       updatedAt: now,
     };
     const idx = all.findIndex((c) => c.id === next.id);
+    const before = idx === -1 ? undefined : all[idx];
     if (idx === -1) all.push(next);
     else all[idx] = next;
     this.persist();
+    for (const l of this.listeners) l(before, next);
     return next;
   }
 
   remove(id: string): void {
+    const before = this.list().find((c) => c.id === id);
     this.cache = this.list().filter((c) => c.id !== id);
     this.persist();
+    for (const l of this.listeners) l(before, undefined);
   }
 
   private persist(): void {

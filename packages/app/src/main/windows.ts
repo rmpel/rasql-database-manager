@@ -5,7 +5,7 @@ import type { PendingConnection } from '@shared/api';
 import { IPC } from '@shared/api';
 import { readSettings, writeSettings } from './settings';
 
-type Kind = 'launcher' | 'connection';
+type Kind = 'launcher' | 'connection' | 'prompt' | 'mcp';
 
 const DEFAULTS: Record<
   Kind,
@@ -13,6 +13,8 @@ const DEFAULTS: Record<
 > = {
   launcher: { width: 960, height: 640, minWidth: 720, minHeight: 480 },
   connection: { width: 1280, height: 820, minWidth: 720, minHeight: 480 },
+  prompt: { width: 620, height: 460, minWidth: 480, minHeight: 320 },
+  mcp: { width: 980, height: 700, minWidth: 720, minHeight: 480 },
 };
 
 /**
@@ -22,6 +24,7 @@ const DEFAULTS: Record<
  */
 export class WindowManager {
   private launcher: BrowserWindow | null = null;
+  private mcp: BrowserWindow | null = null;
   private orphanPending: PendingConnection | null = null;
   private readonly pendingByWindow = new Map<number, PendingConnection>();
 
@@ -52,6 +55,30 @@ export class WindowManager {
     return win;
   }
 
+  /** The MCP window: setup, clients, audit log. One at a time. */
+  showMcp(): BrowserWindow {
+    if (this.mcp && !this.mcp.isDestroyed()) {
+      if (this.mcp.isMinimized()) this.mcp.restore();
+      this.mcp.focus();
+      return this.mcp;
+    }
+    const win = this.build('mcp', 'mcp');
+    win.setTitle('RaSQL — MCP');
+    this.mcp = win;
+    win.on('closed', () => {
+      if (this.mcp === win) this.mcp = null;
+    });
+    return win;
+  }
+
+  /**
+   * An agent prompt, in front of the connection's window when one is open (MCP.md section 5).
+   * Shown without taking focus when RaSQL is in the background; a notification goes with it.
+   */
+  createPrompt(promptId: string, parent: BrowserWindow | undefined, focus: boolean): BrowserWindow {
+    return this.build('prompt', `prompt/${promptId}`, { parent, focus });
+  }
+
   /** Deliver a pending connection (deep link, file, CLI) to the manager. */
   deliver(pending: PendingConnection): void {
     this.showLauncher(pending);
@@ -69,11 +96,17 @@ export class WindowManager {
     this.orphanPending = pending;
   }
 
-  private build(kind: Kind, route: string): BrowserWindow {
-    const bounds = this.restoreBounds(kind);
+  private build(
+    kind: Kind,
+    route: string,
+    prompt?: { parent: BrowserWindow | undefined; focus: boolean },
+  ): BrowserWindow {
+    const bounds = kind === 'prompt' ? {} : this.restoreBounds(kind);
     const win = new BrowserWindow({
       ...DEFAULTS[kind],
       ...bounds,
+      ...(prompt?.parent ? { parent: prompt.parent } : {}),
+      ...(kind === 'prompt' ? { minimizable: false, fullscreenable: false, center: true } : {}),
       show: false,
       title: 'RaSQL',
       titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
@@ -86,7 +119,10 @@ export class WindowManager {
         nodeIntegration: false,
       },
     });
-    win.once('ready-to-show', () => win.show());
+    win.once('ready-to-show', () => {
+      if (prompt && !prompt.focus) win.showInactive();
+      else win.show();
+    });
     win.on('focus', () => {
       if (!win.isDestroyed()) win.webContents.send(IPC.appFocus);
     });
@@ -94,7 +130,7 @@ export class WindowManager {
     const remember = (): void => {
       if (saveTimer) clearTimeout(saveTimer);
       saveTimer = setTimeout(() => {
-        if (!win.isDestroyed() && !win.isMinimized() && !win.isFullScreen()) {
+        if (kind !== 'prompt' && !win.isDestroyed() && !win.isMinimized() && !win.isFullScreen()) {
           writeSettings({ [`bounds.${kind}`]: win.getNormalBounds() });
         }
       }, 400);
@@ -133,7 +169,7 @@ export class WindowManager {
     }
     if (kind === 'connection') {
       const others = BrowserWindow.getAllWindows().filter(
-        (w) => w !== this.launcher && !w.isDestroyed(),
+        (w) => w !== this.launcher && w !== this.mcp && !w.isDestroyed() && !w.getParentWindow(),
       );
       const top = others[others.length - 1];
       if (top && bounds.x !== undefined && bounds.y !== undefined) {

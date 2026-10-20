@@ -1,5 +1,35 @@
 # RaSQL
 
+## MCP has arrived
+
+Since 0.2.0, AI agents such as Claude Code can work with your databases through RaSQL, and you stay
+in charge of every connection:
+
+- **One command to connect:** `claude mcp add rasql -- /Applications/RaSQL.app/Contents/MacOS/RaSQL mcp`
+  (File › MCP Server… shows the exact command for your install).
+- **Nothing is shared until you say so.** Each connection, and each LocalWP site, starts Hidden. Open
+  it up as Read-only, Ask, Secure or Read/Write.
+- **Changes that can lose data always ask**, even on Read/Write: DROP, DELETE, TRUNCATE, an UPDATE
+  without WHERE, or narrowing a column whose data does not fit. RaSQL checks the data first.
+- **Secure** has your operating system confirm every change: Touch ID or your password on macOS,
+  Windows Hello or your password on Windows, polkit on Linux. No other program can approve it with
+  a click.
+- **Passwords never reach an agent**, each connection is limited to its own database, and every
+  action, refused ones included, lands in an audit log you can read in the app.
+
+The details are in [MCP.md](MCP.md).
+
+> **Testers wanted on Windows and Linux.** MCP is tested on macOS only. The Windows and Linux
+> versions are built but have never run on those systems: connecting a client with `rasql mcp`, the
+> prompts, and Secure mode (Windows Hello with password fallback on Windows, polkit on Linux). If
+> you use RaSQL there, please connect an agent, open up a test connection, try Ask and Secure, and
+> tell us what happened, good or bad, in a
+> [GitHub issue](https://github.com/rmpel/rasql-database-manager/issues/new?title=MCP%20on%20Windows%2FLinux).
+> Mention your OS and version, your MCP client, and whether Windows Hello or a fingerprint reader
+> is set up.
+
+---
+
 A fast database manager for web developers. Free, open source, Mac first, builds available for Windows, Mac and Linux, on AMD64/intel as well as ARM64.
 
 ## DISCLAIMER
@@ -15,7 +45,7 @@ This is not copied software, not reverse engineered, not taken from any other pr
 | [docs/GOAL.md](docs/GOAL.md)                 | Why this exists, who it is for, what ships in which phase, what we will not build   |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Process model, driver protocol, value model, one-click open, MCP, security          |
 | [docs/DECISIONS.md](docs/DECISIONS.md)       | Every decision taken so far, with the reasoning, so nobody re-argues it by accident |
-| [MCP.md](MCP.md)                             | What AI agents will be able to do through MCP, and how the user stays in control    |
+| [MCP.md](MCP.md)                             | What AI agents can do through MCP, and how the user stays in control                |
 
 ## In one paragraph
 

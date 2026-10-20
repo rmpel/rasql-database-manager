@@ -27,6 +27,7 @@
       "@rasql/driver-mysql": ["./packages/driver-mysql/src/index.ts"],
       "@rasql/driver-postgres": ["./packages/driver-postgres/src/index.ts"],
       "@rasql/driver-mssql": ["./packages/driver-mssql/src/index.ts"],
+      "@rasql/mcp": ["./packages/mcp/src/index.ts"],
       "@shared/*": ["./packages/app/src/shared/*"],
       "@rasql/localwp-addon": ["./packages/localwp-addon/src/index.ts"]
     }

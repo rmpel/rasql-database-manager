@@ -1,6 +1,10 @@
 import { app, Menu, shell, type MenuItemConstructorOptions } from 'electron';
 
-export function installMenu(onShowLauncher: () => void, onIntegrateDesktop: () => void): void {
+export function installMenu(
+  onShowLauncher: () => void,
+  onIntegrateDesktop: () => void,
+  onShowMcp: () => void,
+): void {
   const isMac = process.platform === 'darwin';
   const template: MenuItemConstructorOptions[] = [
     ...(isMac ? [{ role: 'appMenu' as const }] : []),
@@ -8,6 +12,7 @@ export function installMenu(onShowLauncher: () => void, onIntegrateDesktop: () =
       label: 'File',
       submenu: [
         { label: 'Connections…', accelerator: 'CmdOrCtrl+N', click: onShowLauncher },
+        { label: 'MCP Server…', click: onShowMcp },
         ...(process.platform === 'linux'
           ? [
               { type: 'separator' as const },

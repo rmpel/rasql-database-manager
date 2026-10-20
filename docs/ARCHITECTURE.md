@@ -298,18 +298,21 @@ RaSQL is an MCP server. It is not an MCP client and has no built-in chat.
 
 ### 8.1 Transports
 
-- **stdio.** `rasql mcp` is a thin bridge: it connects to the running app over the local IPC socket and relays MCP messages. This is what Claude Code, Claude Desktop and most editors expect in their configuration.
-- **Streamable HTTP on localhost.** For clients that cannot spawn a process. Bound to `127.0.0.1`, protected by a per-install token shown in the app's settings.
+- **stdio.** `rasql mcp` is a thin bridge: it connects to the running app over the local IPC socket and relays MCP messages byte for byte, starting the app first when it is not running. This is what Claude Code, Claude Desktop and most editors expect in their configuration. The socket is a Unix socket in the user data directory (mode 0600), or a named pipe on Windows. The bridge is the app's own executable started with the `mcp` argument; it takes no single-instance lock and opens no window.
+- **Streamable HTTP on localhost.** For clients that cannot spawn a process. Off by default. Bound to `127.0.0.1`, protected by a per-install token kept in the keychain and shown in the MCP window, with Host and Origin checks against DNS rebinding.
+
+The server logic lives in `packages/mcp`: tools, the database scope check, statement sorting and the transports, behind a `McpHost` interface. The app implements that host in `packages/app/src/main/mcp`: storage, the keychain, prompts, the audit log and the agent sessions. Agents get a session of their own per connection, separate from the user's windows, opened with stored credentials on first use, closed after five minutes idle, with calls serialized and the session in read-only mode except while a change set commits.
 
 ### 8.2 Permission model
 
 Principle 6 in GOAL.md made concrete. [MCP.md](../MCP.md) has the full outline; decision D-39 records it.
 
-- Every MCP client authenticates with an identity: the name it announces plus a token the app issues on first contact. The user approves the first contact in the app.
+- Every MCP client is known by the name it announces in `initialize`. The user approves the first contact in the app, and can revoke it (D-42).
 - Every connection has one **MCP setting**, shared by all approved clients and set in the app, never over MCP:
   - `Hidden`: the connection does not exist for agents. This is the default for connections the user creates.
   - `Read-only`: reads only; write attempts are refused without a prompt.
   - `Ask`: every commit shows a prompt with Once, This session, Always, Deny and Review. Always switches the setting to `Read/Write`.
+  - `Secure`: every commit shows a prompt with Deny, Review and Approve. The main process asks the operating system to confirm the user before anything commits: Touch ID or password on macOS, Windows Hello or password on Windows, polkit on Linux (D-43).
   - `Read/Write`: commits run without a prompt.
 - A connection flagged `readOnly` offers only `Hidden` and `Read-only`. That flag, not a separate MCP rule, is what protects production.
 - Reads are enforced twice: the session is put in read-only mode where the engine supports it, and every statement is classified by the dialect and refused if it is not `read`.
@@ -329,6 +332,7 @@ Principle 6 in GOAL.md made concrete. [MCP.md](../MCP.md) has the full outline; 
 | `list_databases`    | read         |                                                                                                                      |
 | `list_tables`       | read         | Tables and views with row estimates and comments.                                                                    |
 | `describe_table`    | read         | Columns, indexes, foreign keys, DDL.                                                                                 |
+| `describe_object`   | read         | The definition of a view, routine, trigger or event.                                                                 |
 | `search_schema`     | read         | Finds tables and columns by name in the connection's database.                                                       |
 | `sample_rows`       | read         | First N rows, typed, with a hard cap.                                                                                |
 | `query`             | read         | Runs a statement classified `read`; streams up to a configurable row cap; refuses anything else.                     |
@@ -367,8 +371,8 @@ packages/
   driver-postgres/    PostgreSQL driver, GPL
   driver-mssql/       Microsoft SQL Server driver, GPL
   app/                Electron main, renderer, preload, GPL
-  mcp/                MCP server and stdio bridge, GPL
-  cli/                command-line entry point, GPL
+  mcp/                MCP server, permission rules and stdio bridge, GPL
+  cli/                command-line entry point, GPL (planned; `rasql mcp` lives in the app entry)
   localwp-addon/      Local add-on, GPL
 docs/
 ```

@@ -36,6 +36,7 @@ packages/driver-sqlite     SQLite driver on node:sqlite                 (GPL-3.0
 packages/driver-mysql      MySQL and MariaDB driver on mysql2           (GPL-3.0-or-later)
 packages/driver-postgres   PostgreSQL driver on pg                      (GPL-3.0-or-later)
 packages/driver-mssql      SQL Server and Azure SQL driver on tedious   (GPL-3.0-or-later)
+packages/mcp               MCP server, agent permission rules, bridge  (GPL-3.0-or-later)
 packages/app               the Electron application                    (GPL-3.0-or-later)
 docs/                      goal, architecture, decisions
 test/matrix/               Docker Compose engine matrix and fixtures

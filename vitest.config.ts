@@ -19,6 +19,7 @@ export default defineConfig({
       '@rasql/driver-mysql': pkg('driver-mysql'),
       '@rasql/driver-postgres': pkg('driver-postgres'),
       '@rasql/driver-mssql': pkg('driver-mssql'),
+      '@rasql/mcp': pkg('mcp'),
       '@shared': fileURLToPath(new URL('./packages/app/src/shared', import.meta.url)),
     },
   },
@@ -49,6 +50,10 @@ export default defineConfig({
       {
         extends: true,
         test: { name: 'driver-mssql', include: ['packages/driver-mssql/**/*.test.ts'] },
+      },
+      {
+        extends: true,
+        test: { name: 'mcp', include: ['packages/mcp/**/*.test.ts'] },
       },
       {
         extends: true,

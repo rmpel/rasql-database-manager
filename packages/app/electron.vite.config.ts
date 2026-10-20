@@ -42,11 +42,14 @@ const alias = {
   '@rasql/driver-mysql': workspace('driver-mysql'),
   '@rasql/driver-postgres': workspace('driver-postgres'),
   '@rasql/driver-mssql': workspace('driver-mssql'),
+  '@rasql/mcp': workspace('mcp'),
   '@shared': resolve('src/shared'),
 };
-const bundled = Object.keys(alias).filter(
-  (k) => k.startsWith('@rasql/') && !k.endsWith('/manifest'),
-);
+// The MCP SDK is bundled too, so only the parts the server uses ship (not its HTTP frameworks).
+const bundled = [
+  ...Object.keys(alias).filter((k) => k.startsWith('@rasql/') && !k.endsWith('/manifest')),
+  '@modelcontextprotocol/sdk',
+];
 
 export default defineConfig({
   main: {

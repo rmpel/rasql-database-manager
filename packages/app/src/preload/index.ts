@@ -1,5 +1,11 @@
 import { contextBridge, ipcRenderer } from 'electron';
-import type { ExportProgress, PendingConnection, QueryEventMessage, RasqlApi } from '@shared/api';
+import type {
+  ExportProgress,
+  McpActivity,
+  PendingConnection,
+  QueryEventMessage,
+  RasqlApi,
+} from '@shared/api';
 import { IPC } from '@shared/api';
 
 const subscribe = <T>(channel: string, listener: (payload: T) => void): (() => void) => {
@@ -76,6 +82,26 @@ const api: RasqlApi = {
       ipcRenderer.invoke(IPC.cellsOpenExternally, bytes, extension),
     readFile: (path) => ipcRenderer.invoke(IPC.cellsReadFile, path),
   },
+  mcp: {
+    status: () => ipcRenderer.invoke(IPC.mcpStatus),
+    setOptions: (opts) => ipcRenderer.invoke(IPC.mcpSetOptions, opts),
+    httpToken: () => ipcRenderer.invoke(IPC.mcpHttpToken),
+    regenerateHttpToken: () => ipcRenderer.invoke(IPC.mcpRegenerateToken),
+    allowClient: (name) => ipcRenderer.invoke(IPC.mcpAllowClient, name),
+    revoke: (name) => ipcRenderer.invoke(IPC.mcpRevoke, name),
+    forgetClient: (name) => ipcRenderer.invoke(IPC.mcpForgetClient, name),
+    audit: (filter) => ipcRenderer.invoke(IPC.mcpAudit, filter),
+    clearAudit: () => ipcRenderer.invoke(IPC.mcpClearAudit),
+    prompt: (id) => ipcRenderer.invoke(IPC.mcpPrompt, id),
+    answer: (id, answer) => ipcRenderer.invoke(IPC.mcpAnswer, id, answer),
+    review: (id) => ipcRenderer.invoke(IPC.mcpReview, id),
+    presence: () => ipcRenderer.invoke(IPC.mcpPresence),
+    localAccess: () => ipcRenderer.invoke(IPC.mcpLocalAccess),
+    setLocalAccess: (siteId, access) => ipcRenderer.invoke(IPC.mcpSetLocalAccess, siteId, access),
+    setLocalDefault: (access) => ipcRenderer.invoke(IPC.mcpSetLocalDefault, access),
+    onActivity: (listener) => subscribe<McpActivity>(IPC.mcpActivity, listener),
+    onChanged: (listener) => subscribe<void>(IPC.mcpChanged, () => listener()),
+  },
   clipboard: {
     writeText: (text) => ipcRenderer.invoke(IPC.clipboardWriteText, text),
   },
@@ -89,6 +115,7 @@ const api: RasqlApi = {
     commit: __APP_COMMIT__,
     builtAt: __APP_BUILT_AT__,
     showLauncher: () => ipcRenderer.invoke(IPC.appShowLauncher),
+    showMcp: () => ipcRenderer.invoke(IPC.appShowMcp),
     closeWindow: () => ipcRenderer.invoke(IPC.appCloseWindow),
     onPendingConnection: (listener) =>
       subscribe<PendingConnection>(IPC.appPendingConnection, listener),

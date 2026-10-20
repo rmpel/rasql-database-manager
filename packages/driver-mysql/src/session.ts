@@ -979,6 +979,9 @@ export class MysqlSession implements Session {
             break;
           }
           case 'end': {
+            // The final event ends the stream for the host, which may send its next statement
+            // at once; a KILL QUERY still in flight would cancel that statement instead.
+            if (killDone) await killDone;
             if (killed && !truncated) {
               yield {
                 kind: 'error',
@@ -1004,6 +1007,7 @@ export class MysqlSession implements Session {
             return;
           }
           case 'error': {
+            if (killDone) await killDone;
             const e = wrapError(item.err);
             if (truncated && draining) {
               for (const ev of finishCurrent(false)) yield ev;

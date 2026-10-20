@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { DbObject, DbObjectKind, Filter } from '@rasql/driver-protocol';
-import type { ConnectionDefinition, OpenSessionResult } from '@shared/api';
-import { ENVIRONMENT_COLORS } from '@shared/api';
+import type { ConnectionDefinition, McpActivity, OpenSessionResult } from '@shared/api';
+import { ENVIRONMENT_COLORS, localAgentId } from '@shared/api';
 import { rasql } from '../api';
 import { Sidebar } from './Sidebar';
 import { TableTab } from './TableTab';
@@ -170,6 +170,26 @@ export function Workspace({ definition, session, onDisconnect }: Props): React.J
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tabs, active]);
 
+  // An agent working on this connection over MCP shows in the title bar (MCP.md section 7).
+  const [agent, setAgent] = useState<McpActivity | null>(null);
+  useEffect(() => {
+    // Saved connections by id; Local sites as agents address them (localwp:<site id>).
+    const agentId =
+      definition.id || (definition.localSiteId ? localAgentId(definition.localSiteId) : '');
+    if (!agentId) return;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const off = rasql.mcp.onActivity((a) => {
+      if (a.connectionId !== agentId) return;
+      setAgent(a);
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => setAgent(null), 60_000);
+    });
+    return () => {
+      off();
+      if (timer) clearTimeout(timer);
+    };
+  }, [definition.id, definition.localSiteId]);
+
   const disconnect = async (): Promise<void> => {
     await rasql.session.close(session.sessionKey);
     onDisconnect();
@@ -186,6 +206,16 @@ export function Workspace({ definition, session, onDisconnect }: Props): React.J
           {definition.environment === 'production' ? ' · PRODUCTION' : ''}
         </span>
         <span className="spacer" />
+        {agent && (
+          <button
+            className="agent-indicator"
+            title={`${agent.client} is working on this connection. Last: ${agent.tool} at ${new Date(agent.at).toLocaleTimeString()}. Click for the MCP audit log.`}
+            onClick={() => void rasql.app.showMcp()}
+          >
+            <span className="pulse" />
+            {agent.client}
+          </button>
+        )}
         <button onClick={() => newQueryTab()} title="New query tab (⌘T)">
           + Query
         </button>
