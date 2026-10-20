@@ -8,7 +8,7 @@ This is Claude co-authored software, if you don't like AI generated software, th
 
 This is not copied software, not reverse engineered, not taken from any other project, this is coded from scratch (by Claude).
 
-**Status: Phase 1, foundation.** The driver protocol, SDK, SQLite and MySQL/MariaDB drivers and an Electron shell that opens, browses and queries databases exist and are tested. It is a scaffold, not a daily driver yet. See `docs/GOAL.md` for the phases.
+**Status: Phase 1, foundation.** The driver protocol, SDK, SQLite, MySQL/MariaDB, PostgreSQL and SQL Server drivers and an Electron shell that opens, browses and queries databases exist and are tested. It is a scaffold, not a daily driver yet. See `docs/GOAL.md` for the phases.
 
 | Document                                     | What it answers                                                                     |
 | -------------------------------------------- | ----------------------------------------------------------------------------------- |
@@ -31,6 +31,13 @@ https://github.com/rmpel/rasql-database-manager/releases/tag/nightly. It carries
 Silicon and Intel), Windows (x64 installer, ARM64 zip) and Linux (x64 and ARM64 AppImage and
 .deb). The builds are unsigned; the release notes say how to get past the first-launch warning.
 
+RaSQL opens `rasql://`, `mysql://`, `mariadb://` and `sqlite://` links. It can also open
+`postgres://`, `postgresql://`, `mssql://` and `sqlserver://` links, but does not take them from
+other apps. If no other app handles them, macOS will probably send them to RaSQL anyway. Otherwise,
+macOS has no settings screen for this, so use [duti](https://github.com/moretension/duti)
+(`brew install duti`): `duti -s nl.remonpel.rasql postgres all`, and the same for the other
+schemes. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) section 7.
+
 ## Developing
 
 Starting from a machine with nothing installed? See [BUILD.md](BUILD.md) for a from-scratch guide per OS and CPU, including Windows on ARM.
@@ -51,7 +58,7 @@ pnpm install:linux     # same for Linux: AppImage under ~/.local/bin plus a desk
 pnpm install:windows   # same for Windows: silent per-user NSIS install, from PowerShell
 ```
 
-Layout: `packages/driver-protocol` and `packages/driver-sdk` are what a driver author needs (MIT), `packages/driver-sqlite` and `packages/driver-mysql` are the bundled drivers, `packages/app` is the Electron application. See `CONTRIBUTING.md`.
+Layout: `packages/driver-protocol` and `packages/driver-sdk` are what a driver author needs (MIT), `packages/driver-sqlite`, `packages/driver-mysql`, `packages/driver-postgres` and `packages/driver-mssql` are the bundled drivers, `packages/app` is the Electron application. See `CONTRIBUTING.md`.
 
 ## License
 

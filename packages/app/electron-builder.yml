@@ -31,7 +31,7 @@ toolsets:
   appimage: '1.0.3'
 protocols:
   - name: RaSQL connection
-    schemes: [rasql, mysql, mariadb, sqlite]
+    schemes: [rasql, mysql, mariadb, sqlite, postgres, postgresql, mssql, sqlserver]
 fileAssociations:
   - ext: rasql
     name: RaSQL connection

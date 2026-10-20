@@ -5,6 +5,8 @@ import {
   type TableDefinition,
   type TypeDescriptor,
 } from '@rasql/driver-protocol';
+import { PostgresDialect } from '@rasql/driver-postgres';
+import { MssqlDialect } from '@rasql/driver-mssql';
 import {
   buildNativeType,
   destructive,
@@ -18,6 +20,7 @@ import {
   newColumnDraft,
   parseNativeType,
   partsForKind,
+  typeProblem,
   typesOfKind,
 } from './structure';
 
@@ -152,6 +155,36 @@ describe('type parts', () => {
     expect(typesOfKind(TYPES, 'integer').map((t) => t.name)).toEqual(['TINYINT', 'INT', 'BIGINT']);
     expect(partsForKind(TYPES, 'text')).toMatchObject({ base: 'VARCHAR', length: '255' });
     expect(partsForKind(TYPES, 'decimal')).toMatchObject({ precision: '10', scale: '2' });
+  });
+
+  it('reads and writes PostgreSQL and SQL Server type names', () => {
+    const pg = new PostgresDialect().describe().types;
+    for (const native of [
+      'varchar(255)',
+      'timestamptz(3)',
+      'double precision',
+      'numeric(10,2)',
+      'jsonb',
+    ])
+      expect(buildNativeType(parseNativeType(native, pg), pg)).toBe(native.toUpperCase());
+    expect(kindOf(pg, 'TIMESTAMPTZ')?.id).toBe('datetime');
+    expect(kindOf(pg, 'DOUBLE PRECISION')?.id).toBe('float');
+    expect(partsForKind(pg, 'integer').base).toBe('INTEGER');
+    const ms = new MssqlDialect().describe().types;
+    for (const native of [
+      'nvarchar(max)',
+      'datetime2(7)',
+      'decimal(10,2)',
+      'varbinary(max)',
+      'bit',
+    ])
+      expect(buildNativeType(parseNativeType(native, ms), ms)).toBe(
+        native.toUpperCase().replace('(MAX)', '(max)'),
+      );
+    expect(typeProblem(parseNativeType('nvarchar(max)', ms), ms)).toBeNull();
+    expect(typeProblem(parseNativeType('nvarchar(lots)', ms), ms)).toBe('Sizes are whole numbers');
+    expect(kindOf(ms, 'BIT')?.id).toBe('boolean');
+    expect(partsForKind(ms, 'boolean').base).toBe('BIT');
   });
 
   it('shows defaults the way people read them', () => {

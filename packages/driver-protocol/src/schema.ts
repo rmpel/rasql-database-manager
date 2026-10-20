@@ -70,6 +70,13 @@ export interface IndexDefinition {
   type?: string;
   columns: IndexColumn[];
   comment?: string;
+  /**
+   * The index belongs to a PRIMARY KEY or UNIQUE constraint and goes away with it. Engines
+   * such as PostgreSQL and SQL Server drop those with DROP CONSTRAINT, not DROP INDEX.
+   */
+  constraint?: boolean;
+  /** Partial index: only rows matching this condition are indexed. */
+  where?: string;
 }
 
 export interface ForeignKeyDefinition {

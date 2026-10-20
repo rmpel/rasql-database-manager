@@ -183,8 +183,9 @@ export function buildNativeType(parts: TypeParts, types: TypeDescriptor[]): stri
 export function typeProblem(parts: TypeParts, types: TypeDescriptor[]): string | null {
   const d = descriptorFor(types, parts.base);
   const num = (s: string): boolean => s === '' || /^\d+$/.test(s);
-  if (!num(parts.length) || !num(parts.precision) || !num(parts.scale))
-    return 'Sizes are whole numbers';
+  // SQL Server writes its largest text and binary columns as NVARCHAR(MAX), VARBINARY(MAX).
+  const length = /^max$/i.test(parts.length) ? '' : parts.length;
+  if (!num(length) || !num(parts.precision) || !num(parts.scale)) return 'Sizes are whole numbers';
   if (d?.hasValues && parts.values.length === 0) return 'List at least one value';
   if (parts.base === 'VARCHAR' && !parts.length) return 'VARCHAR needs a length';
   if (parts.base === 'VARBINARY' && !parts.length) return 'VARBINARY needs a length';

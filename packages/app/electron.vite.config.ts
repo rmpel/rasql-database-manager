@@ -30,14 +30,23 @@ const buildInfo = {
 
 // Workspace packages are bundled from source so the packaged app needs no node_modules.
 const workspace = (name: string): string => resolve(`../${name}/src/index.ts`);
+// Manifests first: an alias also matches longer paths, so '@rasql/driver-mysql' would catch these.
+const manifest = (name: string): string => resolve(`../${name}/src/manifest.ts`);
 const alias = {
+  '@rasql/driver-mysql/manifest': manifest('driver-mysql'),
+  '@rasql/driver-postgres/manifest': manifest('driver-postgres'),
+  '@rasql/driver-mssql/manifest': manifest('driver-mssql'),
   '@rasql/driver-protocol': workspace('driver-protocol'),
   '@rasql/driver-sdk': workspace('driver-sdk'),
   '@rasql/driver-sqlite': workspace('driver-sqlite'),
   '@rasql/driver-mysql': workspace('driver-mysql'),
+  '@rasql/driver-postgres': workspace('driver-postgres'),
+  '@rasql/driver-mssql': workspace('driver-mssql'),
   '@shared': resolve('src/shared'),
 };
-const bundled = Object.keys(alias).filter((k) => k.startsWith('@rasql/'));
+const bundled = Object.keys(alias).filter(
+  (k) => k.startsWith('@rasql/') && !k.endsWith('/manifest'),
+);
 
 export default defineConfig({
   main: {

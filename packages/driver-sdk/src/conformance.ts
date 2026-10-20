@@ -243,10 +243,9 @@ export async function runConformanceChecks(
         'identifierQuote missing',
       );
       const quoted = await d.quoteIdentifier(`we${info.identifierQuote}ird`);
-      expect(
-        quoted.startsWith(info.identifierQuote) && quoted.endsWith(info.identifierQuote),
-        'not quoted',
-      );
+      // Brackets (SQL Server) open with [ and close with ].
+      const close = info.identifierQuote === '[' ? ']' : info.identifierQuote;
+      expect(quoted.startsWith(info.identifierQuote) && quoted.endsWith(close), 'not quoted');
       expect((await d.classify(trivialSelect)) === 'read', 'trivial select not classified as read');
       expect((await d.classify('DELETE FROM t')) === 'write', 'delete not classified as write');
     });

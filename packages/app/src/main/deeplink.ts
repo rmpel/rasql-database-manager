@@ -7,7 +7,8 @@ import { SQLITE_FILE_EXTENSIONS } from '@rasql/driver-sqlite';
  * Passwords found in URLs are returned once and never logged.
  */
 export function parseLaunchArgument(arg: string): PendingConnection | null {
-  if (/^(rasql|mysql|mariadb|sqlite):\/\//i.test(arg)) return parseUrl(arg);
+  if (/^(rasql|mysql|mariadb|sqlite|postgres|postgresql|mssql|sqlserver):\/\//i.test(arg))
+    return parseUrl(arg);
   const ext = extname(arg).replace(/^\./, '').toLowerCase();
   if (SQLITE_FILE_EXTENSIONS.includes(ext)) {
     return {
@@ -76,14 +77,25 @@ export function parseUrl(raw: string): PendingConnection | null {
     return pending;
   }
 
-  if (scheme === 'mysql' || scheme === 'mariadb') {
+  const serverDriver: Record<string, string> = {
+    mysql: 'mysql',
+    mariadb: 'mysql',
+    postgres: 'postgres',
+    postgresql: 'postgres',
+    mssql: 'mssql',
+    sqlserver: 'mssql',
+  };
+  const driver = serverDriver[scheme];
+  if (driver) {
+    // libpq writes a socket directory as ?host=/var/run/postgresql.
+    const socket = q.get('socket') ?? (q.get('host')?.startsWith('/') ? q.get('host') : null);
     const def: PendingConnection['definition'] = {
-      driver: 'mysql',
-      transport: q.get('socket') ? 'socket' : 'tcp',
+      driver,
+      transport: socket ? 'socket' : 'tcp',
       host: url.hostname || 'localhost',
       source: 'deep-link',
     };
-    if (q.get('socket')) def.socketPath = q.get('socket') as string;
+    if (socket) def.socketPath = socket;
     if (url.port) def.port = Number(url.port);
     if (url.username) def.user = decodeURIComponent(url.username);
     const database = url.pathname.replace(/^\/+/, '');

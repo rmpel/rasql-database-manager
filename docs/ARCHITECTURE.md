@@ -4,21 +4,22 @@ Last revised 2026-10-08. This describes the shape of the system before any of it
 
 ## 1. Stack
 
-| Concern                | Choice                                                                        | Why                                                                                                                     |
-| ---------------------- | ----------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| Shell                  | Electron                                                                      | Identical rendering on every OS; one language for app, drivers, LocalWP add-on and MCP server; largest contributor pool |
-| Language               | TypeScript, strict mode, everywhere                                           | See above                                                                                                               |
-| UI                     | React                                                                         | House style; mature ecosystem for grids and editors                                                                     |
-| Styling                | SCSS modules, system fonts, native light and dark mode                        | No design system dependency                                                                                             |
-| Data grid              | Decided by a Phase 0 spike (canvas-based candidates first)                    | The grid is the single most important widget; it must handle a million rows                                             |
-| Query editor           | CodeMirror 6                                                                  | Lighter than Monaco, better suited to custom SQL completion                                                             |
-| MySQL driver           | mysql2                                                                        | Typed values, Buffers for binary, charset-aware, streaming, mature                                                      |
-| SQLite driver          | better-sqlite3                                                                | Synchronous, fast, well maintained                                                                                      |
-| MSSQL driver (Phase 3) | tedious                                                                       | The standard pure-JS option                                                                                             |
-| SSH                    | ssh2                                                                          | Pure JS, agent, keys, jump hosts; no shelling out to the system binary                                                  |
-| Secrets                | Electron safeStorage plus OS keychain via a native keyring binding            | Encrypted at rest, OS-managed                                                                                           |
-| Packaging              | electron-builder                                                              | Produces dmg, zip, nsis, deb, AppImage from one config                                                                  |
-| Tests                  | Vitest for units, Playwright for the UI, Docker Compose for the engine matrix |                                                                                                                         |
+| Concern           | Choice                                                                        | Why                                                                                                                     |
+| ----------------- | ----------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| Shell             | Electron                                                                      | Identical rendering on every OS; one language for app, drivers, LocalWP add-on and MCP server; largest contributor pool |
+| Language          | TypeScript, strict mode, everywhere                                           | See above                                                                                                               |
+| UI                | React                                                                         | House style; mature ecosystem for grids and editors                                                                     |
+| Styling           | SCSS modules, system fonts, native light and dark mode                        | No design system dependency                                                                                             |
+| Data grid         | Decided by a Phase 0 spike (canvas-based candidates first)                    | The grid is the single most important widget; it must handle a million rows                                             |
+| Query editor      | CodeMirror 6                                                                  | Lighter than Monaco, better suited to custom SQL completion                                                             |
+| MySQL driver      | mysql2                                                                        | Typed values, Buffers for binary, charset-aware, streaming, mature                                                      |
+| SQLite driver     | better-sqlite3                                                                | Synchronous, fast, well maintained                                                                                      |
+| PostgreSQL driver | pg with pg-cursor                                                             | The standard pure-JS client; cursors stream with backpressure (D-39)                                                    |
+| MSSQL driver      | tedious                                                                       | The standard pure-JS option (D-39)                                                                                      |
+| SSH               | ssh2                                                                          | Pure JS, agent, keys, jump hosts; no shelling out to the system binary                                                  |
+| Secrets           | Electron safeStorage plus OS keychain via a native keyring binding            | Encrypted at rest, OS-managed                                                                                           |
+| Packaging         | electron-builder                                                              | Produces dmg, zip, nsis, deb, AppImage from one config                                                                  |
+| Tests             | Vitest for units, Playwright for the UI, Docker Compose for the engine matrix |                                                                                                                         |
 
 Tauri with Rust was the runner-up. It lost on webview inconsistency across OSes, on the smaller contributor pool, and because dynamic driver plugins are awkward in a compiled core.
 
@@ -257,18 +258,30 @@ The LocalWP case is handled explicitly: Local's MySQL is `root`/`root` on a sock
 
 Every door at once, because every third-party tool picks a different one.
 
-| Door               | Form                                                                                                                      | Notes                                                                                                                                            |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| URL scheme         | `rasql://connect?driver=mysql&host=…&port=…&socket=…&user=…&database=…&name=…&env=local&color=…&ssh=alias`                | `socket` is required for LocalWP, which does not listen on TCP by default. A `password` parameter is accepted and goes straight to the keychain. |
-| URL scheme, SQLite | `rasql://open?file=/path/to.db`                                                                                           |                                                                                                                                                  |
-| Generic MySQL URL  | `mysql://user[:password]@host[:port]/database?socket=…`                                                                   | Lets LocalWP's existing TablePlus adapter and other tools work unchanged.                                                                        |
-| Connection file    | `.rasql`, JSON matching `ConnectionDefinition` without the secret                                                         | Double-click opens it.                                                                                                                           |
-| Sequel Pro file    | `.spf` (XML plist)                                                                                                        | Imported on open. This is the format LocalWP wrote for Sequel Pro.                                                                               |
-| SQLite file        | `.sqlite`, `.sqlite3`, `.db`                                                                                              | Opens directly.                                                                                                                                  |
-| CLI                | `rasql <url-or-file>` or `rasql --driver mysql --socket … --user … --database …`                                          | The CLI talks to a running instance over a local IPC socket, or starts one.                                                                      |
-| Discovery          | LocalWP sites registry; project folders with `wp-config.php`, `.env`, Laravel `config/database.php`, `docker-compose.yml` | Produces suggested connections with `source` set; the user confirms before anything is stored.                                                   |
+| Door                           | Form                                                                                                                                                    | Notes                                                                                                                                            |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| URL scheme                     | `rasql://connect?driver=mysql&host=…&port=…&socket=…&user=…&database=…&name=…&env=local&color=…&ssh=alias`                                              | `socket` is required for LocalWP, which does not listen on TCP by default. A `password` parameter is accepted and goes straight to the keychain. |
+| URL scheme, SQLite             | `rasql://open?file=/path/to.db`                                                                                                                         |                                                                                                                                                  |
+| Generic MySQL URL              | `mysql://user[:password]@host[:port]/database?socket=…`                                                                                                 | Lets LocalWP's existing TablePlus adapter and other tools work unchanged.                                                                        |
+| PostgreSQL and SQL Server URLs | `postgres://` or `postgresql://user[:password]@host[:port]/database?host=/socket/dir`, `mssql://` or `sqlserver://user[:password]@host[:port]/database` | Declared by the app but not claimed at launch, so tools that already handle them keep them (see below).                                          |
+| Connection file                | `.rasql`, JSON matching `ConnectionDefinition` without the secret                                                                                       | Double-click opens it.                                                                                                                           |
+| Sequel Pro file                | `.spf` (XML plist)                                                                                                                                      | Imported on open. This is the format LocalWP wrote for Sequel Pro.                                                                               |
+| SQLite file                    | `.sqlite`, `.sqlite3`, `.db`                                                                                                                            | Opens directly.                                                                                                                                  |
+| CLI                            | `rasql <url-or-file>` or `rasql --driver mysql --socket … --user … --database …`                                                                        | The CLI talks to a running instance over a local IPC socket, or starts one.                                                                      |
+| Discovery                      | LocalWP sites registry; project folders with `wp-config.php`, `.env`, Laravel `config/database.php`, `docker-compose.yml`                               | Produces suggested connections with `source` set; the user confirms before anything is stored.                                                   |
 
 Behavior when a URL arrives without a password: the connection is created, a connect is attempted, and on authentication failure the user is prompted for the password with an offer to store it. Third parties may therefore integrate without ever handling the secret.
+
+**Choosing RaSQL for `postgres://`, `postgresql://`, `mssql://` and `sqlserver://`.** RaSQL claims `rasql://`, `mysql://`, `mariadb://` and `sqlite://` when it starts. It only declares the PostgreSQL and SQL Server schemes, because Postico, TablePlus and similar tools may already handle them. If no other app on the Mac handles a scheme, macOS will probably send it to RaSQL without the user doing anything. Otherwise the user picks RaSQL themselves. macOS has no settings screen for choosing a URL handler, so this takes a small tool such as `duti` (`brew install duti`):
+
+```sh
+duti -s nl.remonpel.rasql postgres all
+duti -s nl.remonpel.rasql postgresql all
+duti -s nl.remonpel.rasql mssql all
+duti -s nl.remonpel.rasql sqlserver all
+```
+
+On Windows the installer does not register these four schemes yet.
 
 A password that arrives in a URL is never logged, never shown in the recent-documents list, and is removed from the URL before the URL is passed anywhere else.
 
@@ -351,6 +364,8 @@ packages/
   driver-sdk/         base classes, test harness, MIT
   driver-mysql/       MySQL and MariaDB driver, GPL
   driver-sqlite/      SQLite driver, GPL
+  driver-postgres/    PostgreSQL driver, GPL
+  driver-mssql/       Microsoft SQL Server driver, GPL
   app/                Electron main, renderer, preload, GPL
   mcp/                MCP server and stdio bridge, GPL
   cli/                command-line entry point, GPL
