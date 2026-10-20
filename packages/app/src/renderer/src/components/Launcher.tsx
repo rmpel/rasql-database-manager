@@ -6,7 +6,7 @@ import type {
   OpenSessionResult,
   PendingConnection,
 } from '@shared/api';
-import { ENVIRONMENT_COLORS } from '@shared/api';
+import { ENVIRONMENT_COLORS, MCP_ACCESS_OPTIONS, mcpAccessOf } from '@shared/api';
 import { rasql } from '../api';
 import { ConnectionForm, type ConnectionFormValue } from './ConnectionForm';
 import { LocalWpSection } from './LocalWpSection';
@@ -208,7 +208,16 @@ export function Launcher({ drivers, pending, onPending, onOpened }: Props): Reac
                             style={{ background: c.color ?? ENVIRONMENT_COLORS[c.environment] }}
                           />
                           <span className="connection-name">{c.name}</span>
-                          <span className="connection-meta">{describe(c)}</span>
+                          <span className="connection-meta">
+                            {describe(c)}
+                            {mcpAccessOf(c) !== 'hidden' && (
+                              <span className="mcp-badge" title="What agents may do over MCP">
+                                {' '}
+                                · agents:{' '}
+                                {MCP_ACCESS_OPTIONS.find((o) => o.value === mcpAccessOf(c))?.label}
+                              </span>
+                            )}
+                          </span>
                         </button>
                         <button
                           className={`connection-star${c.favorite ? ' on' : ''}`}
@@ -244,6 +253,9 @@ export function Launcher({ drivers, pending, onPending, onOpened }: Props): Reac
           {saved.length > 0 && sections.length === 0 && <li className="hint">No matches.</li>}
         </ul>
         <LocalWpSection onPending={onPending} busy={busy} />
+        <button className="launcher-mcp" onClick={() => void rasql.app.showMcp()}>
+          MCP server…
+        </button>
         <footer title={`Built ${rasql.app.builtAt} from commit ${rasql.app.commit}`}>
           v{rasql.app.version} · {rasql.app.commit} ·{' '}
           {rasql.app.builtAt.slice(0, 16).replace('T', ' ')} UTC

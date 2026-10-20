@@ -16,6 +16,9 @@ import type {
   TableDefinition,
   Transport,
 } from '@rasql/driver-protocol';
+import type { ChangeSetSummary, ClientInfo, McpAccess } from '@rasql/mcp';
+
+export type { ChangeSetSummary, ClientInfo, McpAccess };
 
 export type Environment = 'local' | 'development' | 'staging' | 'production' | 'other';
 
@@ -47,6 +50,8 @@ export interface ConnectionDefinition {
   color?: string;
   environment: Environment;
   readOnly: boolean;
+  /** What agents may do over MCP. Absent means hidden; the read-only flag caps it (D-40). */
+  mcp?: McpAccess;
   driver: string;
   transport: Transport;
   host?: string;
@@ -64,7 +69,9 @@ export interface ConnectionDefinition {
   };
   /** Tunnel through these hops, in order, before reaching host/port or socketPath. */
   ssh?: SshHop[];
-  source?: 'manual' | 'localwp' | 'project-folder' | 'deep-link' | 'import' | 'cli';
+  source?: 'manual' | 'localwp' | 'project-folder' | 'deep-link' | 'import' | 'cli' | 'mcp';
+  /** The Local site this connection was opened from; agents know it as localwp:<id>. */
+  localSiteId?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -220,6 +227,104 @@ export interface QueryEventMessage {
   event: QueryEvent;
 }
 
+/** A client the user allowed or refused, by the name it announces. */
+export interface McpClientRecord {
+  name: string;
+  title?: string;
+  version?: string;
+  status: 'allowed' | 'denied';
+  decidedAt: string;
+  lastSeen?: string;
+  /** Connected right now. */
+  connected: boolean;
+}
+
+export interface McpStatus {
+  socketPath: string;
+  socketListening: boolean;
+  socketError?: string;
+  /** The command a client such as Claude Code runs to reach RaSQL. */
+  command: string[];
+  http: { enabled: boolean; port: number; listening: boolean; error?: string; url: string };
+  rowLimit: number;
+  clients: McpClientRecord[];
+}
+
+export interface McpOptions {
+  httpEnabled?: boolean;
+  httpPort?: number;
+  rowLimit?: number;
+}
+
+/** MCP settings for LocalWP sites: one default, and a setting per site that overrides it. */
+export interface McpLocalAccess {
+  defaultAccess: McpAccess;
+  sites: Record<string, McpAccess>;
+}
+
+/** How agents address a Local site, next to stored connections' own ids. */
+export const localAgentId = (siteId: string): string => `localwp:${siteId}`;
+
+export interface McpAuditRecord {
+  id: string;
+  at: string;
+  client: string;
+  tool: string;
+  outcome: 'ok' | 'refused' | 'denied' | 'committed' | 'failed' | 'expired' | 'error';
+  connectionId?: string;
+  connectionName?: string;
+  detail?: string;
+  sql?: string[];
+}
+
+export type McpPrompt =
+  | { id: string; kind: 'client'; client: ClientInfo }
+  | {
+      id: string;
+      kind: 'connection';
+      client: ClientInfo;
+      /** What the agent wants to store, without the password. */
+      connection: {
+        name: string;
+        driver: string;
+        transport: string;
+        target: string;
+        user?: string;
+        database?: string;
+        environment: string;
+        readOnly: boolean;
+        hasPassword: boolean;
+      };
+    }
+  | {
+      id: string;
+      kind: 'commit';
+      client: ClientInfo;
+      changeSet: ChangeSetSummary;
+      expiresAt: string;
+      /** The connection is Secure: approving needs the OS to confirm the user; only Once is offered. */
+      secure: boolean;
+      /** How the OS confirms the user here: "Touch ID or your password", "Windows Hello". */
+      confirmWith: string;
+    };
+
+export type McpPromptAnswer =
+  { decision: 'allow' | 'once' | 'session' | 'always' } | { decision: 'deny'; note?: string };
+
+export interface McpReview {
+  plans: (string | null)[];
+  /** Rows an UPDATE or DELETE touches, as they are now. */
+  before: (unknown | null)[];
+}
+
+/** An agent did something on a connection; connection windows show an indicator. */
+export interface McpActivity {
+  connectionId: string;
+  client: string;
+  tool: string;
+  at: string;
+}
+
 export interface RasqlApi {
   drivers: {
     list(): Promise<DriverManifest[]>;
@@ -310,6 +415,34 @@ export interface RasqlApi {
   clipboard: {
     writeText(text: string): Promise<void>;
   };
+  mcp: {
+    status(): Promise<McpStatus>;
+    setOptions(opts: McpOptions): Promise<McpStatus>;
+    /** The token HTTP clients send; created on first use and kept in the keychain. */
+    httpToken(): Promise<string>;
+    regenerateHttpToken(): Promise<string>;
+    allowClient(name: string): Promise<McpStatus>;
+    /** Revoke one client's access, or every client's when name is omitted, and disconnect. */
+    revoke(name?: string): Promise<McpStatus>;
+    forgetClient(name: string): Promise<McpStatus>;
+    audit(filter?: {
+      client?: string;
+      connectionId?: string;
+      limit?: number;
+    }): Promise<McpAuditRecord[]>;
+    clearAudit(): Promise<void>;
+    prompt(id: string): Promise<McpPrompt | null>;
+    answer(id: string, answer: McpPromptAnswer): Promise<void>;
+    review(changeSetId: string): Promise<McpReview>;
+    /** Whether the OS can confirm the user here (Touch ID, Windows Hello, polkit), which Secure needs. */
+    presence(): Promise<{ available: boolean; label: string }>;
+    localAccess(): Promise<McpLocalAccess>;
+    /** One site's setting; null makes it follow the default again. */
+    setLocalAccess(siteId: string, access: McpAccess | null): Promise<McpLocalAccess>;
+    setLocalDefault(access: McpAccess): Promise<McpLocalAccess>;
+    onActivity(listener: (a: McpActivity) => void): () => void;
+    onChanged(listener: () => void): () => void;
+  };
   dialog: {
     openFile(opts: { title?: string; extensions?: string[] }): Promise<string | null>;
     confirm(opts: ConfirmOptions): Promise<boolean>;
@@ -323,6 +456,8 @@ export interface RasqlApi {
     builtAt: string;
     /** Show the connection manager window, creating it if needed. */
     showLauncher(): Promise<void>;
+    /** Show the MCP window: setup, clients and the audit log. */
+    showMcp(): Promise<void>;
     /** Close the calling window; for a connection window that ends the session. */
     closeWindow(): Promise<void>;
     onPendingConnection(listener: (pending: PendingConnection) => void): () => void;
@@ -389,6 +524,25 @@ export const IPC = {
   sessionDescribe: 'session:describe',
   appPendingConnection: 'app:pendingConnection',
   appTakePending: 'app:takePending',
+  appShowMcp: 'app:showMcp',
+  mcpStatus: 'mcp:status',
+  mcpSetOptions: 'mcp:setOptions',
+  mcpHttpToken: 'mcp:httpToken',
+  mcpRegenerateToken: 'mcp:regenerateToken',
+  mcpAllowClient: 'mcp:allowClient',
+  mcpRevoke: 'mcp:revoke',
+  mcpForgetClient: 'mcp:forgetClient',
+  mcpAudit: 'mcp:audit',
+  mcpClearAudit: 'mcp:clearAudit',
+  mcpPrompt: 'mcp:prompt',
+  mcpAnswer: 'mcp:answer',
+  mcpReview: 'mcp:review',
+  mcpPresence: 'mcp:presence',
+  mcpLocalAccess: 'mcp:localAccess',
+  mcpSetLocalAccess: 'mcp:setLocalAccess',
+  mcpSetLocalDefault: 'mcp:setLocalDefault',
+  mcpActivity: 'mcp:activity',
+  mcpChanged: 'mcp:changed',
 } as const;
 
 export const ENVIRONMENT_COLORS: Record<Environment, string> = {
@@ -398,3 +552,31 @@ export const ENVIRONMENT_COLORS: Record<Environment, string> = {
   production: '#d43f3f',
   other: '#7a7f8a',
 };
+
+/** The MCP setting per connection as the connection form offers it (MCP.md section 1). */
+export const MCP_ACCESS_OPTIONS: { value: McpAccess; label: string; help: string }[] = [
+  { value: 'hidden', label: 'Hidden', help: 'Agents do not see this connection.' },
+  {
+    value: 'read',
+    label: 'Read-only',
+    help: 'Agents read; write attempts are refused without asking you.',
+  },
+  { value: 'ask', label: 'Ask', help: 'Agents read, and every change waits for you to allow it.' },
+  {
+    value: 'secure',
+    label: 'Secure',
+    help: 'Agents read, and every change waits for you to confirm it with Touch ID, Windows Hello or your password.',
+  },
+  {
+    value: 'write',
+    label: 'Read/Write',
+    help: 'Agents read and write without asking, except changes that can lose data.',
+  },
+];
+
+/** A read-only connection offers Hidden and Read-only only; absent means Hidden. */
+export function mcpAccessOf(def: { mcp?: McpAccess | undefined; readOnly: boolean }): McpAccess {
+  const access = def.mcp ?? 'hidden';
+  const writes = access === 'ask' || access === 'secure' || access === 'write';
+  return def.readOnly && writes ? 'read' : access;
+}

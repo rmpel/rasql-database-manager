@@ -1,7 +1,7 @@
 {
   "name": "@rasql/app",
   "productName": "RaSQL",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "description": "RaSQL: a fast, keyboard-first database manager for web developers",
   "license": "GPL-3.0-or-later",
   "private": true,
@@ -40,8 +40,10 @@
   },
   "devDependencies": {
     "@electron-toolkit/utils": "^4.0.0",
+    "@modelcontextprotocol/sdk": "^1.32.1",
     "@playwright/test": "^1.64.0",
     "@rasql/localwp-addon": "workspace:*",
+    "@rasql/mcp": "workspace:*",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
     "@types/ssh2": "^1.15.6",

@@ -1,0 +1,27 @@
+{
+  "name": "@rasql/mcp",
+  "version": "0.1.0",
+  "description": "RaSQL MCP server: tools, permission rules for agent access, change classification and the stdio bridge",
+  "license": "GPL-3.0-or-later",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.1",
+    "@rasql/driver-protocol": "workspace:*"
+  },
+  "devDependencies": {
+    "@rasql/driver-sqlite": "workspace:*"
+  }
+}

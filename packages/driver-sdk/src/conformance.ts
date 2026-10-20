@@ -196,6 +196,20 @@ export async function runConformanceChecks(
       expect(cell.t === 'int' && typeof cell.v === 'string', 'int must travel as a string');
     });
 
+    await check('a result cut at maxRows leaves the next statement alone', async () => {
+      // A driver that stops a result by cancelling it must finish cancelling before its last
+      // event: the host sends its next statement as soon as that event arrives.
+      for (let i = 0; i < 5; i++) {
+        await collect(needSession().query(trivialSelect, { maxRows: 1 }));
+        const next = await collect(needSession().query(trivialSelect));
+        const error = next.find((e) => e.kind === 'error');
+        expect(
+          !error,
+          `statement after a maxRows read failed: ${error?.kind === 'error' ? error.message : ''}`,
+        );
+      }
+    });
+
     await check('non-ascii text arrives intact', async () => {
       const events = await collect(needSession().query(unicodeSelect));
       const rows = events.filter((e) => e.kind === 'rows').flatMap((e) => e.rows);

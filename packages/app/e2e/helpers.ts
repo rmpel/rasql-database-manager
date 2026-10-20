@@ -48,6 +48,8 @@ export async function launch(
       ...process.env,
       RASQL_USER_DATA: userData,
       RASQL_KEYCHAIN_SERVICE: KEYCHAIN_SERVICE,
+      // Exposes test hooks such as the swappable OS user check (Secure MCP setting).
+      RASQL_E2E_HOOKS: '1',
       NODE_ENV: 'production',
     },
   });

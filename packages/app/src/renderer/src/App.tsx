@@ -4,22 +4,32 @@ import type { ConnectionDefinition, PendingConnection } from '@shared/api';
 import { rasql } from './api';
 import { Launcher } from './components/Launcher';
 import { Workspace } from './components/Workspace';
+import { McpPrompt } from './components/McpPrompt';
+import { McpWindow } from './components/McpWindow';
 
 /** The main process tells a window its role through the URL hash. */
-type Route = { kind: 'launcher' } | { kind: 'connection'; sessionKey: string };
+type Route =
+  | { kind: 'launcher' }
+  | { kind: 'connection'; sessionKey: string }
+  | { kind: 'prompt'; id: string }
+  | { kind: 'mcp' };
 
 function routeFromHash(): Route {
-  const m = /^#connection\/(.+)$/.exec(window.location.hash);
-  return m ? { kind: 'connection', sessionKey: m[1] as string } : { kind: 'launcher' };
+  const hash = window.location.hash;
+  const m = /^#connection\/(.+)$/.exec(hash);
+  if (m) return { kind: 'connection', sessionKey: m[1] as string };
+  const p = /^#prompt\/(.+)$/.exec(hash);
+  if (p) return { kind: 'prompt', id: p[1] as string };
+  if (hash === '#mcp') return { kind: 'mcp' };
+  return { kind: 'launcher' };
 }
 
 export function App(): React.JSX.Element {
   const [route] = useState<Route>(routeFromHash);
-  return route.kind === 'connection' ? (
-    <ConnectionWindow sessionKey={route.sessionKey} />
-  ) : (
-    <LauncherWindow />
-  );
+  if (route.kind === 'connection') return <ConnectionWindow sessionKey={route.sessionKey} />;
+  if (route.kind === 'prompt') return <McpPrompt id={route.id} />;
+  if (route.kind === 'mcp') return <McpWindow />;
+  return <LauncherWindow />;
 }
 
 /** The connection manager: saved connections, Local sites, the form. Lives as long as the user keeps it. */

@@ -139,7 +139,13 @@ export class SessionManager {
     return this.tunnels.open(hops, tunnelTarget(definition, defaultPort), secrets);
   }
 
-  async open(win: BrowserWindow, req: OpenSessionRequest): Promise<OpenSessionResult> {
+  /** Start a driver process and connect it, through the SSH tunnel when the definition has one. */
+  private async connect(req: OpenSessionRequest): Promise<{
+    proc: DriverProcess;
+    session: RemoteSession;
+    tunnel: TunnelHandle | null;
+    manifest: DriverManifest;
+  }> {
     const { definition } = req;
     const { manifest } = findDriver(definition.driver);
     let password = req.password;
@@ -164,6 +170,35 @@ export class SessionManager {
       tunnel?.release();
       throw err;
     }
+    return { proc, session, tunnel, manifest };
+  }
+
+  /**
+   * A session without a window, for MCP agents. It uses stored credentials only and is
+   * closed by its owner.
+   */
+  async openDetached(
+    definition: ConnectionDefinition,
+    password?: string,
+  ): Promise<{ session: RemoteSession; close: () => Promise<void> }> {
+    const { proc, session, tunnel } = await this.connect(
+      password === undefined ? { definition } : { definition, password },
+    );
+    this.log(`[mcp] opened agent session for ${definition.name}`);
+    return {
+      session,
+      close: async () => {
+        await session.close().catch(() => undefined);
+        proc.kill();
+        tunnel?.release();
+        this.log(`[mcp] closed agent session for ${definition.name}`);
+      },
+    };
+  }
+
+  async open(win: BrowserWindow, req: OpenSessionRequest): Promise<OpenSessionResult> {
+    const { definition } = req;
+    const { proc, session, tunnel, manifest } = await this.connect(req);
     if (req.savePassword && req.password !== undefined && definition.id) {
       await this.credentials.set(passwordAccount(definition.id), req.password);
     }
@@ -184,6 +219,18 @@ export class SessionManager {
       `[session ${key.slice(0, 8)}] opened ${definition.name} (${session.serverInfo.engine} ${session.serverInfo.version})`,
     );
     return { sessionKey: key, info: session.serverInfo, manifest };
+  }
+
+  /** Windows showing a saved connection, so an agent prompt can appear in front of one. */
+  windowsFor(connectionId: string): number[] {
+    return [...this.sessions.values()]
+      .filter(
+        (s) =>
+          s.definition.id === connectionId ||
+          (s.definition.localSiteId !== undefined &&
+            `localwp:${s.definition.localSiteId}` === connectionId),
+      )
+      .map((s) => s.windowId);
   }
 
   get(key: string): RemoteSession {

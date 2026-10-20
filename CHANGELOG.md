@@ -1,3 +1,9 @@
+= 0.2.0 = 2026-10-20
+
+- MCP server: AI agents such as Claude Code reach the connections you open up for them. Every connection has an MCP setting (Hidden, Read-only, Ask, Secure, Read/Write) in its form; Hidden is the default. Secure has the operating system confirm you for every change (Touch ID or password on macOS, Windows Hello or password on Windows, polkit on Linux), so no other program can approve one with a click. MCP is tested on macOS only; Windows and Linux testers are wanted, see [README.md](README.md). Changes wait for your answer in a prompt with Once, This session, Always, Deny and Review; changes that can lose data always ask. Set it up under File › MCP Server, see [MCP.md](MCP.md).
+- LocalWP sites get their MCP setting from a ⚙ next to each site, with one default for all Local sites in the MCP window.
+- Bugfix: MySQL: a statement could fail with "Query cancelled" when it ran right after a read that stopped at its row limit.
+
 = 0.1.2 = 2026-10-13
 
 - Bugfix: The Linux ARM64 AppImage did not start ("libz.so: cannot open shared object file"). AppImages now use the static runtime, which needs no libfuse2 or zlib, only fuse3.

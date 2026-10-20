@@ -425,3 +425,91 @@ while `libgbm1` and `libasound2`, which it does link, were missing from the list
 requirement, for a defect in a runtime electron-builder already replaced. The static toolset is
 marked beta upstream; revisit if it causes trouble, the legacy runtime is one line away.
 **Owner:** Claude, from a failed install report by Remon; dated 2026-10-13.
+
+## D-42 Building the MCP server: identity by client name, a session of its own, prompts as windows
+
+**Decided:** The MCP server is `packages/mcp` on the official TypeScript SDK (its low-level
+`Server`, bundled into the main process so its HTTP frameworks do not ship), behind a `McpHost`
+interface the app implements. A client is known by the name it announces in `initialize`; the user
+allows or denies that name once, and the decision lasts until revoked in the MCP window. There is no
+per-client token: `rasql mcp` relays stdio byte for byte to a socket only the user can open, so a
+token would sit in a file every local process can read anyway. HTTP, which any local process could
+reach, is off by default and needs the per-install token. Agents get one session per connection of
+their own, never the user's window session, kept read-only except while a change set commits, so a
+query an agent runs can never land in the middle of the user's transaction. Prompts are small
+windows in front of the connection's window when one is open, with a notification when RaSQL is in
+the background; closing one is a Deny, and a commit prompt expires as Deny after five minutes. No button has
+focus when a prompt opens, and for its first second it ignores clicks and keys, so typing or
+clicking meant for another window cannot answer it.
+`commit_changes` waits up to two minutes for the outcome and `change_status` picks it up after
+that. "This session" applies to the connection, not to the agent, and ends when the connection's
+MCP setting changes or access is revoked. Statements are sorted by a tokenizer in `packages/mcp`
+that knows each engine's quoting, not by a SQL parser: narrowing a column becomes a COUNT of the
+rows that would not fit, run before the prompt, and the commit runs with `STRICT_ALL_TABLES` on
+MySQL. Anything the tokenizer cannot read counts as destructive. Agents also never run transaction
+control, `USE`, `ATTACH`, file access (`LOAD DATA`, `INTO OUTFILE`, `COPY`) or functions that sleep,
+read files or signal other sessions. `describe_object` joins the tool list for views, routines,
+triggers and events (MCP.md section 3). Reads return at most a row limit the user sets, 500 by
+default.
+**Why:** Name-based identity is what MCP clients offer over stdio; a token handed to "the client"
+would be handed to whichever process asked first. A separate session keeps the user's work and the
+agent's apart and lets the read-only mode stay on. Windows, rather than native message boxes, are
+needed for the Deny note and for Review. A real SQL parser per engine is a large dependency for a
+decision that only needs leading keywords, qualified names, WHERE presence and column types.
+**Rejected:** Per-client tokens over stdio (no added security on a single-user machine). Reusing the
+user's open session (an agent statement inside the user's open transaction). Native dialogs for
+commit prompts (no note, no review). Treating every DDL statement as destructive on PostgreSQL and
+SQL Server (their DDL is transactional, and the widening rules carry over).
+**Owner:** Claude built it from the outline Remon decided (D-40); dated 2026-10-20.
+
+## D-43 Secure: an MCP setting where the operating system confirms every change
+
+**Decided:** A fifth MCP setting, Secure, sits between Ask and Read/Write. Every change set on a
+Secure connection shows the prompt, whether it is safe or not, and the prompt offers Deny, Review
+and Approve. The approval goes to the main process, which asks the operating system to confirm the
+user and only then lets the change commit; a failed or cancelled check leaves the prompt open. The
+check is one interface with a provider per platform (`packages/app/src/main/mcp/presence.ts`),
+each running a tool the OS ships, so no native module is added: on macOS LocalAuthentication's
+device-owner policy through `osascript` (Touch ID or Apple Watch, the account password as
+fallback); on Windows the WinRT UserConsentVerifier through Windows PowerShell 5.1 (Windows Hello:
+PIN, face or fingerprint), with the Windows Security password dialog checked by `LogonUser` when
+Hello is not set up; on Linux polkit through the desktop's agent, with RaSQL's own `auth_self`
+action when its policy file is installed and `pkexec /usr/bin/true` (an administrator password)
+otherwise. This session and Always are not offered, and an answer claiming either counts as
+Once, because both would let later changes through unchecked; Always never lifts a Secure
+connection to Read/Write. Secure can only be picked where a check is available; a Secure
+connection on a computer without one fails closed, and its changes can only be denied. The
+read-only flag caps Secure at Read-only, like Ask and Read/Write.
+**Why:** While testing, prompts on the author's Mac were answered by real mouse clicks that the
+author did not make, most likely from another agent driving the desktop. A click proves nothing
+about who clicked; the operating system's own check does. Electron's `promptTouchID` was the
+first version: it allows biometrics only, so on the author's Mac, where Touch ID was unavailable
+at the time, no Secure change could have been approved, and it exists on macOS only.
+**Rejected:** Touch ID only (no password fallback, macOS only). A password field in RaSQL's own
+prompt (anything that can click can type, and RaSQL would handle the password). Native modules
+per platform (a build per OS and CPU for one call each). Touch ID for destructive changes only
+(the author chose a check for every change). Making Ask itself require the check (Ask stays quick
+for local work).
+**Not yet verified:** the Windows and Linux providers have not run on those systems, and the .deb
+does not install the polkit policy file yet.
+**Owner:** Remon asked for the mode, chose its behavior and asked for a check per platform;
+Claude built it; dated 2026-10-20.
+
+## D-44 LocalWP sites get an MCP setting of their own, resolved live
+
+**Decided:** Local sites have no stored connection, so they have no connection form. Each site row
+in the connection manager gets a ⚙ with the MCP setting, and the MCP window gets one default for
+all Local sites, Hidden by default; a site's own setting overrides it. RaSQL stores only the
+site's id and its setting in `mcp.json`. Agents address a site as `localwp:<site id>`, and RaSQL
+builds its connection from Local's registry on every use: the socket while it runs, the TCP port
+otherwise, the site's database and Local's `root` login. A stopped site refuses with "start it in
+Local"; agents cannot rename one. Connection windows opened from a Local site carry the site's id,
+so the agent indicator and prompts in front of the window work for them as for stored
+connections.
+**Why:** The author's daily databases are Local sites. A saved copy of a site would keep the
+socket and port of one moment and go stale when Local moves them; a per-site setting does not.
+A default helps with many sites, which are local development databases by nature.
+**Rejected:** "Save as connection" for a Local site (a copy that goes stale). Opening Local sites to
+agents by default (Principle 6: the agent gets nothing by default).
+**Owner:** Remon found the gap and chose the per-site setting with a default; Claude built it;
+dated 2026-10-20.

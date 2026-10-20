@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE policyconfig PUBLIC "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
+  "http://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
+<!--
+  RaSQL's Secure MCP setting (docs/DECISIONS.md D-43): before an AI agent's database change
+  commits, the logged-in user confirms it is them, every time. Install to
+  /usr/share/polkit-1/actions/nl.remonpel.rasql.policy. Without it RaSQL falls back to pkexec,
+  which asks for an administrator password instead.
+-->
+<policyconfig>
+  <vendor>RaSQL</vendor>
+  <vendor_url>https://github.com/rmpel/rasql-database-manager</vendor_url>
+  <action id="nl.remonpel.rasql.approve-agent-change">
+    <description>Approve database changes an AI agent asked for</description>
+    <message>RaSQL needs you to confirm database changes requested by an AI agent</message>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>auth_self</allow_active>
+    </defaults>
+  </action>
+</policyconfig>

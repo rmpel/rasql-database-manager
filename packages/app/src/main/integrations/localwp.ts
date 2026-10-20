@@ -198,6 +198,7 @@ export function pendingConnectionFor(site: LocalSite): PendingConnection {
     user: site.user,
     database: site.database,
     source: 'localwp',
+    localSiteId: site.id,
   };
   if (useSocket) definition.socketPath = site.socketPath as string;
   else {
