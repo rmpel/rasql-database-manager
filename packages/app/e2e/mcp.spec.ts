@@ -298,8 +298,12 @@ test('a Secure connection commits only after the OS confirms the user', async ()
         .locator('.mcp-prompt h1')
         .evaluate((e) => e.ownerDocument.defaultView!.getComputedStyle(e).color),
     );
-    // The check confirms: the change commits.
-    await prompt.getByRole('button', { name: 'Approve with Test ID' }).click();
+    // The check confirms: the change commits. The prompt closes as it does, which can be before
+    // the click returns (seen on Linux), so the commit result below is what proves the click.
+    await prompt
+      .getByRole('button', { name: 'Approve with Test ID' })
+      .click()
+      .catch(() => undefined);
     expect(json(await pending)['status']).toBe('committed');
     // The failed check is in the audit log, next to the commit.
     const audit = await page.evaluate(() =>
