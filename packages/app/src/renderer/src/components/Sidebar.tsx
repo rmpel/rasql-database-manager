@@ -28,11 +28,11 @@ export function Sidebar({
   const [objects, setObjects] = useState<DbObject[]>([]);
   const [filter, setFilter] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    rasql.session
-      .listSchemas(sessionKey)
-      .then((list) => {
+  const loadSchemas = useCallback(
+    () =>
+      rasql.session.listSchemas(sessionKey).then((list) => {
         setSchemas(list);
         // The connection's database names the schema on MySQL; on PostgreSQL and SQL Server
         // schemas live inside the database, so start in the server's current one instead.
@@ -40,20 +40,40 @@ export function Sidebar({
           const current = list.find((s) => s.isCurrent) ?? list.find((s) => !s.isSystem) ?? list[0];
           if (current) onSchemaChange(current.name);
         }
-      })
-      .catch((e: unknown) => setError(String(e)));
+      }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [sessionKey, schema],
+  );
+
+  useEffect(() => {
+    loadSchemas().catch((e: unknown) => setError(String(e)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionKey]);
 
+  const loadObjects = useCallback(
+    (): Promise<void> =>
+      schema ? rasql.session.listObjects(sessionKey, schema).then(setObjects) : Promise.resolve(),
+    [sessionKey, schema],
+  );
+
   const reload = useCallback(() => {
-    if (!schema) return;
-    rasql.session
-      .listObjects(sessionKey, schema)
-      .then(setObjects)
-      .catch((e: unknown) => setError(String(e)));
-  }, [sessionKey, schema]);
+    loadObjects().catch((e: unknown) => setError(String(e)));
+  }, [loadObjects]);
 
   useEffect(reload, [reload, refreshToken]);
+
+  /** Re-reads the schema list and the objects in it, after the schema changed elsewhere. */
+  const refreshAll = async (): Promise<void> => {
+    setLoading(true);
+    setError(null);
+    try {
+      await Promise.all([loadSchemas(), loadObjects()]);
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const shown = useMemo(() => {
     const q = filter.trim().toLowerCase();
@@ -162,12 +182,41 @@ export function Sidebar({
           </option>
         ))}
       </select>
-      <input
-        className="sidebar-filter"
-        placeholder="Filter objects"
-        value={filter}
-        onChange={(e) => setFilter(e.target.value)}
-      />
+      <div className="sidebar-tools">
+        <div className="sidebar-filter">
+          <input
+            placeholder="Filter objects"
+            aria-label="Filter objects"
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape' && filter) {
+                e.preventDefault();
+                setFilter('');
+              }
+            }}
+          />
+          {filter && (
+            <button
+              className="sidebar-filter-clear"
+              title="Clear filter (Esc)"
+              aria-label="Clear filter"
+              onClick={() => setFilter('')}
+            >
+              ×
+            </button>
+          )}
+        </div>
+        <button
+          className={`sidebar-refresh${loading ? ' busy' : ''}`}
+          title="Refresh object list"
+          aria-label="Refresh object list"
+          disabled={loading}
+          onClick={() => void refreshAll()}
+        >
+          <span>↻</span>
+        </button>
+      </div>
       {error && (
         <div className="form-error" onClick={() => setError(null)}>
           {error}
@@ -203,6 +252,9 @@ export function Sidebar({
         ))}
         {schema && objects.length === 0 && !error && (
           <li className="hint">No objects in {schema}</li>
+        )}
+        {objects.length > 0 && shown.length === 0 && (
+          <li className="hint">No objects match “{filter.trim()}”</li>
         )}
       </ul>
     </aside>

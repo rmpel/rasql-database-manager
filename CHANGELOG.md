@@ -1,3 +1,9 @@
+= 0.2.1 = 2026-11-02
+
+- The object list in the sidebar has a refresh button (↻) that reloads the databases and their objects, so tables added, changed or dropped outside RaSQL show up without reconnecting.
+- The object filter has a clear button (×), and Esc clears it too. A filter that matches nothing now says so.
+- 0.2.0 was never published as a release; its MCP features ship with this one.
+
 = 0.2.0 = 2026-10-20
 
 - MCP server: AI agents such as Claude Code reach the connections you open up for them. Every connection has an MCP setting (Hidden, Read-only, Ask, Secure, Read/Write) in its form; Hidden is the default. Secure has the operating system confirm you for every change (Touch ID or password on macOS, Windows Hello or password on Windows, polkit on Linux), so no other program can approve one with a click. MCP is tested on macOS only; Windows and Linux testers are wanted, see [README.md](README.md). Changes wait for your answer in a prompt with Once, This session, Always, Deny and Review; changes that can lose data always ask. Set it up under File › MCP Server, see [MCP.md](MCP.md).
