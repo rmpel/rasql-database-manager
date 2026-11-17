@@ -36,6 +36,8 @@ export function startMcp(deps: {
   sessions: SessionManager;
   windows: WindowManager;
   log: (line: string) => void;
+  /** The number of `rasql mcp` bridges on the socket changed; a background instance lives on it. */
+  onBridges?: (count: number) => void;
 }): () => Promise<void> {
   const { store, credentials, sessions, windows, log } = deps;
   const config = new McpConfigStore();
@@ -82,6 +84,11 @@ export function startMcp(deps: {
     try {
       socket = await listenOnSocket(core, socketPath, log);
       socketError = undefined;
+      let bridges = 0;
+      socket.on('connection', (s) => {
+        deps.onBridges?.(++bridges);
+        s.once('close', () => deps.onBridges?.(--bridges));
+      });
     } catch (err) {
       socketError = err instanceof Error ? err.message : String(err);
       log(`[mcp] socket failed: ${socketError}`);

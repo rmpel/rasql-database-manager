@@ -513,3 +513,31 @@ A default helps with many sites, which are local development databases by nature
 agents by default (Principle 6: the agent gets nothing by default).
 **Owner:** Remon found the gap and chose the per-site setting with a default; Claude built it;
 dated 2026-10-20.
+
+## D-45 `rasql mcp` starts RaSQL in the background, and that instance quits when the bridges leave
+
+**Decided:** When `rasql mcp` finds no running app, it starts one with `--mcp-background`. That
+instance opens no main window, and on macOS it hides its Dock icon and never takes focus. Only the
+prompts that need the user appear: a new client's first contact, a connection an agent wants to
+add, and Ask, Secure and destructive commit prompts, shown without focus and with a notification as
+before (D-42). Opening RaSQL the normal way (Dock, Finder, `open -a RaSQL`, a second launch, a deep
+link) shows the connection manager, brings the Dock icon back and ends background mode for good: from
+then on the instance behaves as one the user started. A second `--mcp-background` launch, from two
+bridges starting at the same moment, changes nothing in the running instance. An app that was
+already running is left as it is. A background instance quits when no bridge has been connected
+and no window has been open for 30 seconds; an open prompt keeps it running until it is answered or
+expires. On Windows and Linux, closing the last window while bridges are connected no longer quits
+RaSQL: it goes to the background and follows the same rule.
+**Why:** MCP clients such as Claude Code start their servers when a session starts, so every new
+session brought the RaSQL window to the front. The user did not ask for RaSQL at that moment; an
+agent did, and an agent only needs the socket. Quitting when the bridges leave means nothing the
+user did not open keeps running; the 30 seconds cover a client that restarts its server. Bridges,
+not HTTP sessions, keep it alive: a background instance only exists because a bridge started it,
+and HTTP clients cannot start RaSQL anyway.
+**Rejected:** Keeping the background instance running until the user quits it (an invisible app
+nobody started, holding agent sessions open). Quitting at once when the last bridge leaves (a
+client that restarts its server would start RaSQL again each time). A tray icon for the background
+instance (more UI for a state that ends by itself). Putting an instance the user opened back in the
+background when its windows close on macOS (macOS apps stay running with their Dock icon).
+**Owner:** Remon asked for the background start; Claude chose the quit rule and built it; dated
+2026-11-17.

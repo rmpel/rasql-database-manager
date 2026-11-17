@@ -27,8 +27,34 @@ export class WindowManager {
   private mcp: BrowserWindow | null = null;
   private orphanPending: PendingConnection | null = null;
   private readonly pendingByWindow = new Map<number, PendingConnection>();
+  private readonly prompts = new Set<number>();
 
-  constructor(private readonly onClosed: (windowId: number) => void) {}
+  /**
+   * `onMainWindow` runs before any window other than a prompt opens, so an instance started in
+   * the background by `rasql mcp` can come to the front first (D-45).
+   */
+  constructor(
+    private readonly onClosed: (windowId: number) => void,
+    private readonly onMainWindow: () => void = () => undefined,
+  ) {}
+
+  /** Whether a window other than an agent prompt is open. */
+  hasMainWindow(): boolean {
+    return BrowserWindow.getAllWindows().some((w) => !w.isDestroyed() && !this.prompts.has(w.id));
+  }
+
+  /** Bring the user to RaSQL: the most recent main window, or the manager when none is open. */
+  showMain(): void {
+    const win = BrowserWindow.getAllWindows().find(
+      (w) => !w.isDestroyed() && !this.prompts.has(w.id),
+    );
+    if (!win) {
+      this.showLauncher();
+      return;
+    }
+    if (win.isMinimized()) win.restore();
+    win.focus();
+  }
 
   /** Show the manager, creating it when needed. Optionally hands it a connection to open. */
   showLauncher(pending?: PendingConnection): BrowserWindow {
@@ -101,6 +127,7 @@ export class WindowManager {
     route: string,
     prompt?: { parent: BrowserWindow | undefined; focus: boolean },
   ): BrowserWindow {
+    if (kind !== 'prompt') this.onMainWindow();
     const bounds = kind === 'prompt' ? {} : this.restoreBounds(kind);
     const win = new BrowserWindow({
       ...DEFAULTS[kind],
@@ -119,6 +146,7 @@ export class WindowManager {
         nodeIntegration: false,
       },
     });
+    if (kind === 'prompt') this.prompts.add(win.id);
     win.once('ready-to-show', () => {
       if (prompt && !prompt.focus) win.showInactive();
       else win.show();
@@ -140,6 +168,7 @@ export class WindowManager {
     win.on('closed', () => {
       if (saveTimer) clearTimeout(saveTimer);
       this.pendingByWindow.delete(win.id);
+      this.prompts.delete(win.id);
       this.onClosed(win.id);
     });
     win.webContents.setWindowOpenHandler(({ url }) => {

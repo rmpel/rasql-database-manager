@@ -1,3 +1,8 @@
+= 0.2.2 = 2026-11-17
+
+- `rasql mcp` no longer brings RaSQL to the front. When it has to start RaSQL, RaSQL runs in the background without a window or Dock icon, and shows only the prompts that need you. Opening RaSQL yourself shows the connection manager as usual. A background RaSQL quits 30 seconds after the last MCP client disconnects. See [MCP.md](MCP.md).
+- On Windows and Linux, closing the last window no longer quits RaSQL while an MCP client is connected through `rasql mcp`.
+
 = 0.2.1 = 2026-11-02
 
 - The object list in the sidebar has a refresh button (↻) that reloads the databases and their objects, so tables added, changed or dropped outside RaSQL show up without reconnecting.

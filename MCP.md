@@ -27,7 +27,13 @@ note under Secure in section 5 and report in
 3. The first time the client connects, RaSQL asks whether to allow it. Allow it once; RaSQL
    remembers the decision until you revoke it.
 
-`rasql mcp` starts RaSQL when it is not running, so the client can be started first.
+`rasql mcp` starts RaSQL when it is not running, so the client can be started first. RaSQL then
+runs in the background: no window, no Dock icon on macOS, and it does not take focus. Only a
+prompt that needs you appears (sections 1, 5 and 6), without focus and with a notification.
+Opening RaSQL yourself (Dock, Finder, `open -a RaSQL`) shows the connection manager as usual and
+keeps RaSQL running like any app you started. A background RaSQL quits 30 seconds after the last
+`rasql mcp` disconnects, unless a window is open. If RaSQL is already running, `rasql mcp` changes
+nothing about its windows.
 
 **HTTP.** Clients that cannot start a command can use Streamable HTTP. Turn it on in the MCP window.
 It listens on `http://127.0.0.1:47334/mcp` (the port can be changed) and every request needs the
@@ -39,6 +45,7 @@ token shown there, sent as `Authorization: Bearer <token>`. The token is kept in
 | --------------------------------------- | --------------------------------------------------------------------------- |
 | Tools, permission rules, change sorting | `packages/mcp/` (`core.ts`, `changes.ts`, `scope.ts`, `types.ts`)           |
 | `rasql mcp` stdio bridge                | `runBridge` in `packages/mcp/src/transports.ts`, started from the app entry |
+| Background start and quit               | `packages/app/src/main/background.ts`                                       |
 | Local socket and HTTP transports        | `packages/mcp/src/transports.ts`                                            |
 | Agent sessions, prompts, audit log      | `packages/app/src/main/mcp/`                                                |
 | MCP setting in the connection form      | `packages/app/src/renderer/src/components/ConnectionForm.tsx`               |
@@ -250,8 +257,9 @@ INT column to TINYINT" runs only if every value lies between -128 and 127, and a
 
 ### 8. Transports
 
-- **stdio.** `rasql mcp` relays MCP messages to the running app over its local IPC socket. This is
-  the form Claude Code, Claude Desktop and most editors expect.
+- **stdio.** `rasql mcp` relays MCP messages to the running app over its local IPC socket, and
+  starts the app in the background first when it is not running (see Setting up a client, and
+  D-45). This is the form Claude Code, Claude Desktop and most editors expect.
 - **Streamable HTTP.** Bound to `127.0.0.1` and protected by a per-install token from the app's
   settings, for clients that cannot start a process.
 
@@ -276,7 +284,7 @@ INT column to TINYINT" runs only if every value lies between -128 and 127, and a
 ## Decisions
 
 Recorded as D-40 in [docs/DECISIONS.md](docs/DECISIONS.md), which amends D-08. Choices made while
-building it are D-42.
+building it are D-42; starting in the background is D-45.
 
 - **Access is one MCP setting per connection:** Hidden, Read-only, Ask, Secure or Read/Write. Hidden is the
   default. Always in the prompt switches Ask to Read/Write.
