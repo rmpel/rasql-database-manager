@@ -1,6 +1,7 @@
+import { createHash } from 'node:crypto';
 import { existsSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { connect, type Socket } from 'node:net';
-import { homedir, tmpdir } from 'node:os';
+import { homedir, tmpdir, userInfo } from 'node:os';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { expect, test, type ElectronApplication, type Page } from '@playwright/test';
@@ -9,7 +10,7 @@ import { ReadBuffer, serializeMessage } from '@modelcontextprotocol/sdk/shared/s
 import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
 import type { JSONRPCMessage } from '@modelcontextprotocol/sdk/types.js';
 import type { RasqlApi } from '@shared/api';
-import { SHOTS, launch, openConnectionWindow } from './helpers';
+import { SHOTS, launch, launchInBackground, openConnectionWindow } from './helpers';
 
 /** The client side of the app's MCP socket: what `rasql mcp` relays from stdio. */
 class SocketClientTransport implements Transport {
@@ -57,6 +58,33 @@ async function nextPrompt(app: ElectronApplication, trigger?: () => unknown): Pr
   await expect(prompt.locator('body')).toHaveAttribute('data-armed', 'true');
   return prompt;
 }
+
+/** The app's MCP socket, computed as `rasql mcp` does (main/mcp/paths.ts). */
+async function socketPath(app: ElectronApplication): Promise<string> {
+  const userData = await app.evaluate(({ app }) => app.getPath('userData'));
+  const tag = createHash('sha256').update(userData).digest('hex').slice(0, 12);
+  if (process.platform === 'win32') return `\\\\.\\pipe\\rasql-mcp-${userInfo().username}-${tag}`;
+  const inData = join(userData, 'mcp.sock');
+  return inData.length < 100 ? inData : join(tmpdir(), `rasql-mcp-${tag}.sock`);
+}
+
+/** Connect to the socket once the app listens on it, as the bridge does. */
+async function bridgeSocket(path: string): Promise<Socket> {
+  for (let i = 0; ; i++) {
+    try {
+      return await new Promise<Socket>((resolve, reject) => {
+        const s = connect(path, () => resolve(s));
+        s.once('error', reject);
+      });
+    } catch (err) {
+      if (i > 80) throw err;
+      await new Promise((r) => setTimeout(r, 250));
+    }
+  }
+}
+
+const dockVisible = (app: ElectronApplication): Promise<boolean> =>
+  app.evaluate(({ app }) => app.dock?.isVisible() ?? true);
 
 type ToolResult = { isError?: boolean; content: { text: string }[] };
 const json = (r: unknown): Record<string, unknown> =>
@@ -413,5 +441,127 @@ test('a LocalWP site gets its MCP setting from the gear and is resolved live for
   } finally {
     await client.close().catch(() => undefined);
     await app.close();
+  }
+});
+
+test('started by rasql mcp, RaSQL stays in the background and shows only its prompts', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'rasql-e2e-mcp-bg-'));
+  const file = join(dir, 'shop.sqlite');
+  const db = new DatabaseSync(file);
+  db.exec(`CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT);
+    INSERT INTO users (name) VALUES ('ann');`);
+  db.close();
+  const userData = mkdtempSync(join(tmpdir(), 'rasql-e2e-'));
+  const now = new Date().toISOString();
+  writeFileSync(
+    join(userData, 'connections.json'),
+    JSON.stringify({
+      version: 1,
+      connections: [
+        {
+          id: 'shop',
+          name: 'Shop (e2e)',
+          environment: 'local',
+          readOnly: false,
+          mcp: 'ask',
+          driver: 'sqlite',
+          transport: 'file',
+          filePath: file,
+          options: {},
+          credentials: {},
+          createdAt: now,
+          updatedAt: now,
+        },
+      ],
+    }),
+  );
+
+  const app = await launchInBackground(userData);
+  const client = new Client({ name: 'e2e-agent', version: '1.0.0' });
+  try {
+    const path = await socketPath(app);
+    (await bridgeSocket(path)).destroy();
+    // Listening, and still no window and no Dock icon.
+    expect(app.windows()).toHaveLength(0);
+    if (process.platform === 'darwin') expect(await dockVisible(app)).toBe(false);
+
+    // First contact: only the prompt appears.
+    const first = await nextPrompt(app, () => client.connect(new SocketClientTransport(path)));
+    await expect(first.locator('h1')).toContainText('e2e-agent wants to use RaSQL');
+    expect(app.windows()).toHaveLength(1);
+    await first.getByRole('button', { name: 'Allow' }).click();
+
+    // A change on an Ask connection: again only its prompt.
+    const pending = client.callTool({
+      name: 'commit_changes',
+      arguments: {
+        connection: 'Shop (e2e)',
+        statements: ["UPDATE users SET name = 'anne' WHERE id = 1"],
+        wait_seconds: 60,
+      },
+    });
+    const commit = await nextPrompt(app);
+    await expect.poll(() => app.windows().filter((w) => !w.isClosed()).length).toBe(1);
+    await commit.getByRole('button', { name: 'Once' }).click();
+    expect(json(await pending)['status']).toBe('committed');
+
+    // A second bridge that started the app at the same moment changes nothing.
+    await app.evaluate(({ app }) => {
+      app.emit('second-instance', {}, [process.execPath, '--mcp-background'], process.cwd());
+    });
+    await new Promise((r) => setTimeout(r, 500));
+    expect(app.windows().filter((w) => !w.isClosed())).toHaveLength(0);
+    if (process.platform === 'darwin') expect(await dockVisible(app)).toBe(false);
+
+    // Opening RaSQL (Dock, Finder, `open -a RaSQL`) shows the connection manager and the Dock icon.
+    const [launcher] = await Promise.all([
+      app.waitForEvent('window', { predicate: (w) => w.url().endsWith('#launcher') }),
+      app.evaluate(({ app }) => {
+        app.emit('activate');
+      }),
+    ]);
+    await expect(launcher.getByRole('heading', { name: 'RaSQL' })).toBeVisible();
+    if (process.platform === 'darwin') await expect.poll(() => dockVisible(app)).toBe(true);
+  } finally {
+    await client.close().catch(() => undefined);
+    await app.close();
+  }
+});
+
+test('a background instance quits once its last bridge leaves', async () => {
+  const userData = mkdtempSync(join(tmpdir(), 'rasql-e2e-'));
+  const now = new Date().toISOString();
+  writeFileSync(
+    join(userData, 'mcp.json'),
+    JSON.stringify({
+      version: 1,
+      clients: [{ name: 'e2e-agent', status: 'allowed', decidedAt: now }],
+      httpEnabled: false,
+      httpPort: 47334,
+      rowLimit: 500,
+    }),
+  );
+  const app = await launchInBackground(userData, { RASQL_BACKGROUND_LINGER_MS: '4000' });
+  const exited = new Promise<void>((r) => app.process().once('exit', () => r()));
+  const client = new Client({ name: 'e2e-agent', version: '1.0.0' });
+  try {
+    const path = await socketPath(app);
+    const first = await bridgeSocket(path);
+    await client.connect(new SocketClientTransport(path));
+    first.destroy();
+    // One bridge is still connected: well past the linger time, RaSQL still answers.
+    await new Promise((r) => setTimeout(r, 5000));
+    const list = json(await client.callTool({ name: 'list_connections', arguments: {} }));
+    expect(list['connections']).toEqual([]);
+
+    await client.close();
+    const quit = await Promise.race([
+      exited.then(() => true),
+      new Promise<boolean>((r) => setTimeout(() => r(false), 15_000)),
+    ]);
+    expect(quit).toBe(true);
+  } finally {
+    await client.close().catch(() => undefined);
+    await app.close().catch(() => undefined);
   }
 });

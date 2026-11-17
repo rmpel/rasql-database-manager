@@ -17,6 +17,7 @@ import { WindowManager } from './windows';
 import { startMcp } from './mcp';
 import { mcpSocketPath } from './mcp/paths';
 import { runBridge } from '@rasql/mcp';
+import { BACKGROUND_ARG, BACKGROUND_LINGER_MS, BackgroundLife } from './background';
 import { spawn } from 'node:child_process';
 
 const log = (line: string): void => {
@@ -35,7 +36,8 @@ else startApp();
 
 /**
  * `rasql mcp`: relay MCP messages between stdio and the running app (MCP.md section 8).
- * Starts the app when it is not running. Writes nothing to stdout but the protocol.
+ * Starts the app in the background when it is not running (D-45). Writes nothing to stdout but
+ * the protocol.
  */
 function runMcpBridge(): void {
   app.dock?.hide();
@@ -44,7 +46,11 @@ function runMcpBridge(): void {
     delete env['ELECTRON_RUN_AS_NODE'];
     // Unpackaged, Electron needs the app path it was started with, minus the `mcp` argument.
     const args = app.isPackaged ? [] : process.argv.slice(1, process.argv.indexOf('mcp'));
-    spawn(process.execPath, args, { detached: true, stdio: 'ignore', env }).unref();
+    spawn(process.execPath, [...args, BACKGROUND_ARG], {
+      detached: true,
+      stdio: 'ignore',
+      env,
+    }).unref();
   };
   void runBridge({ path: mcpSocketPath(), launchApp }).then((code) => app.exit(code));
 }
@@ -59,7 +65,34 @@ function startApp(): void {
   const savedQueries = new SavedQueryStore();
   const tunnels = createSshTunnelManager(log);
   const sessions = new SessionManager(credentials, log, tunnels);
-  const windows = new WindowManager((windowId) => void sessions.closeForWindow(windowId));
+  // Started by `rasql mcp`: no main window and no Dock icon until the user asks for one (D-45).
+  const background = launchArgs.includes(BACKGROUND_ARG);
+  if (background) app.dock?.hide();
+  const life = new BackgroundLife(background, {
+    lingerMs: Number(process.env['RASQL_BACKGROUND_LINGER_MS']) || BACKGROUND_LINGER_MS,
+    hasWindows: () => BrowserWindow.getAllWindows().some((w) => !w.isDestroyed()),
+    quit: () => {
+      log('[mcp] no bridge connected and no window open; quitting the background instance');
+      app.quit();
+    },
+  });
+  let offeredIntegration = false;
+  const offerIntegration = (): void => {
+    if (offeredIntegration) return;
+    offeredIntegration = true;
+    void offerDesktopIntegration(log);
+  };
+  const leaveBackground = (): void => {
+    if (!life.background) return;
+    life.leave();
+    // The user asked for a window, so RaSQL may come to the front with its Dock icon.
+    void app.dock?.show().then(() => app.focus({ steal: true }));
+    offerIntegration();
+  };
+  const windows = new WindowManager(
+    (windowId) => void sessions.closeForWindow(windowId),
+    leaveBackground,
+  );
   let stopMcp: (() => Promise<void>) | null = null;
   sessions.attachWindows(windows);
 
@@ -76,12 +109,10 @@ function startApp(): void {
     app.quit();
   } else {
     app.on('second-instance', (_e, argv) => {
+      // Another bridge started the app at the same moment; this instance already serves it.
+      if (argv.includes(BACKGROUND_ARG)) return;
       const handled = argv.slice(1).some(handleArgument);
-      if (!handled) {
-        const win = BrowserWindow.getAllWindows()[0];
-        if (win) win.focus();
-        else windows.showLauncher();
-      }
+      if (!handled) windows.showMain();
     });
 
     // macOS delivers URLs and files through these events, possibly before 'ready'.
@@ -106,10 +137,21 @@ function startApp(): void {
         for (const scheme of ['rasql', 'mysql', 'mariadb', 'sqlite'])
           app.setAsDefaultProtocolClient(scheme);
       }
-      app.on('browser-window-created', (_e, win) => optimizer.watchWindowShortcuts(win));
+      app.on('browser-window-created', (_e, win) => {
+        optimizer.watchWindowShortcuts(win);
+        life.windowsChanged();
+        win.on('closed', () => setImmediate(() => life.windowsChanged()));
+      });
 
       registerIpc({ store, credentials, sessions, windows, history, savedQueries });
-      stopMcp = startMcp({ store, credentials, sessions, windows, log });
+      stopMcp = startMcp({
+        store,
+        credentials,
+        sessions,
+        windows,
+        log,
+        onBridges: (count) => life.bridgesChanged(count),
+      });
       registerExportIpc({ sessions });
       registerCellIpc();
       registerSshIpc({ credentials });
@@ -124,17 +166,21 @@ function startApp(): void {
         .find((a) => !a.startsWith('-'));
       const pending = launchedWith ? parseLaunchArgument(launchedWith) : null;
       if (pending) windows.deliver(pending);
-      else windows.showLauncher();
+      else if (!background) windows.showLauncher();
 
+      // Dock click, Finder or `open -a RaSQL`. An open agent prompt is not a main window.
       app.on('activate', () => {
-        if (BrowserWindow.getAllWindows().length === 0) windows.showLauncher();
+        if (!windows.hasMainWindow()) windows.showLauncher();
       });
 
-      void offerDesktopIntegration(log);
+      if (!background) offerIntegration();
     });
 
     app.on('window-all-closed', () => {
-      if (process.platform !== 'darwin') app.quit();
+      if (process.platform === 'darwin') return;
+      // Bridges still use RaSQL: keep serving them in the background until they leave.
+      if (life.background || life.serving) life.enter();
+      else app.quit();
     });
 
     app.on('before-quit', () => {

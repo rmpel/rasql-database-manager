@@ -41,9 +41,29 @@ test.afterAll(() => {
 export async function launch(
   userData = mkdtempSync(join(tmpdir(), 'rasql-e2e-')),
 ): Promise<{ app: ElectronApplication; page: Page; userData: string }> {
+  const app = await start(userData);
+  const page = await app.firstWindow();
+  await page.waitForLoadState('domcontentloaded');
+  await expect(page.getByRole('heading', { name: 'RaSQL' })).toBeVisible();
+  return { app, page, userData };
+}
+
+/** Start the app as `rasql mcp` does when it is not running: in the background, no window. */
+export function launchInBackground(
+  userData: string,
+  env: Record<string, string> = {},
+): Promise<ElectronApplication> {
+  return start(userData, ['--mcp-background'], env);
+}
+
+async function start(
+  userData: string,
+  args: string[] = [],
+  env: Record<string, string> = {},
+): Promise<ElectronApplication> {
   userDataDirs.push(userData);
   const app = await electron.launch({
-    args: [resolve('out/main/index.js')],
+    args: [resolve('out/main/index.js'), ...args],
     env: {
       ...process.env,
       RASQL_USER_DATA: userData,
@@ -51,6 +71,7 @@ export async function launch(
       // Exposes test hooks such as the swappable OS user check (Secure MCP setting).
       RASQL_E2E_HOOKS: '1',
       NODE_ENV: 'production',
+      ...env,
     },
   });
   // No native dialog may reach the screen during a test: a person clicking it would decide the
@@ -74,10 +95,7 @@ export async function launch(
       filePath: '',
     })) as typeof dialog.showSaveDialog;
   });
-  const page = await app.firstWindow();
-  await page.waitForLoadState('domcontentloaded');
-  await expect(page.getByRole('heading', { name: 'RaSQL' })).toBeVisible();
-  return { app, page, userData };
+  return app;
 }
 
 export function portOpen(port: number, host = '127.0.0.1'): Promise<boolean> {
